@@ -11,7 +11,6 @@ from tensorflow.keras.utils import to_categorical
 
 # Import CapsuleNetwork model for MNIST classification
 from capsnet import CapsuleNet
-from capslayers import compute_vectors_length
 
 # Import some utilities
 from utils import parse_args
@@ -52,9 +51,6 @@ def train(model, data, args):
         Returns:
             A scalar loss value.
         """
-        # Calculate length of output vectors of DigitCaps
-        y_pred = compute_vectors_length(y_pred)
-
         # Calculate loss
         L = y_true * tf.square(tf.maximum(0., 0.9 - y_pred)) + \
             0.5 * (1 - y_true) * tf.square(tf.maximum(0., y_pred - 0.1))
@@ -63,13 +59,13 @@ def train(model, data, args):
 
     # Compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss=[margin_loss, 'mse'],
-                  loss_weights=[1., args.lam_recon],
-                  metrics={'output_1': 'accuracy'})
+                  loss=margin_loss,
+                  loss_weights=1.,
+                  metrics=['accuracy'])
 
     # Training without data augmentation:
     model.fit(x=x_train, y=y_train, batch_size=args.batch_size, epochs=args.epochs,
-              validation_data=[x_test, y_test])
+              validation_data=(x_test, y_test))
 
     model.save_weights(args.save_dir + '/trained_model.h5')
 
@@ -86,11 +82,10 @@ if __name__ == "__main__":
     (x_train, y_train), (x_test, y_test) = load_mnist()
 
     # Instantiate Capsule Network Model
-    model = CapsuleNet(n_class=10, r_iter=3)
+    model = CapsuleNet(input_shape=x_train.shape[1:], n_class=y_train.shape[1], r_iter=3)
 
-    # Build and show summary
-    model.build(input_shape=x_train.shape)
-    model.summary()
+    # Show a complete summary
+    model.summary(batch_size=args.batch_size)
 
     # Train!
     train(model=model, data=((x_train, y_train), (x_test, y_test)), args=args)

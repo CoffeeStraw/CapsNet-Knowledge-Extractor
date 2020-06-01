@@ -87,22 +87,16 @@ class ClassCaps(Layer):
 
         return tf.squeeze(outputs)
 
-    def compute_output_shape(self, input_shape):
-        return tuple([None, self.n_capsules, self.out_dim_capsule])
-
-    def get_config(self):
-        config = {
-            'n_capsules': self.n_capsules,
-            'out_dim_capsule': self.out_dim_capsule,
-            'r_iter': self.r_iter
-        }
-        base_config = super(CapsuleLayer, self).get_config()
-        return dict(list(base_config.items()) + list(config.items()))
-
 
 def compute_vectors_length(vecs):
     """
-    Compute vectors length
+    Compute vectors length. This is used to compute final prediction as probabilities.
+
+    Args:
+        vecs: A tensor with shape (batch_size, n_vectors, dim_vector)
+
+    Returns:
+        A new tensor with shape (batch_size, n_vectors)
     """
     return tf.sqrt(tf.reduce_sum(tf.square(vecs), -1) + epsilon())
 
