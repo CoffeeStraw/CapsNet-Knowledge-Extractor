@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from tensorflow.keras.layers import Layer, Conv2D, Reshape, Lambda
-from tensorflow.keras.backend import epsilon
+from tensorflow.keras.backend import epsilon, one_hot, argmax, batch_flatten, expand_dims
 from tensorflow.keras import initializers
 
 
@@ -86,6 +86,32 @@ class ClassCaps(Layer):
                 b += tf.matmul(outputs, inputs_hat, transpose_b=True)
 
         return tf.squeeze(outputs)
+
+
+def mask(inputs):
+    """ Mask a Tensor with shape (batch_size, n_capsules, dim_vector).
+
+    It can be done either by selecting the capsule with max length or by an additional input mask.
+    The first is usually the method for testing, the second is the one for the training.
+
+    Args:
+        inputs: Either a tensor to be masked (output of the class capsules)
+                or a tensor with both the tensor and an additional input mask
+    """
+    # Mask is provided?
+    if type(inputs) is tuple:
+        # Unpack
+        inputs, mask = inputs
+    else:
+        # Calculate the mask by the max length of capsules.
+        x = compute_vectors_length(inputs)
+        # Generate one-hot encoded mask
+        mask = one_hot(indices=argmax(x, 1),
+                       num_classes=x.get_shape().as_list()[1])
+
+    # Mask the inputs
+    masked = batch_flatten(inputs * expand_dims(mask, -1))
+    return masked
 
 
 def compute_vectors_length(vecs):

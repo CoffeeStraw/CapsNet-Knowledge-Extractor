@@ -67,9 +67,9 @@ def train(model, data, args):
 
     # Compile the model
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
-                  loss=margin_loss,
-                  loss_weights=1.,
-                  metrics=['accuracy'])
+                  loss=[margin_loss, 'mse'],
+                  loss_weights=[1., args.lam_recon],
+                  metrics={'output_1': 'accuracy'})
 
     # Define a callback to reduce learning rate
     lr_decay = callbacks.LearningRateScheduler(
@@ -91,8 +91,8 @@ def train(model, data, args):
             self.epoch += 1
 
     # Simple training without data augmentation:
-    model.fit(x=x_train, y=y_train, batch_size=args.batch_size, epochs=args.epochs,
-              validation_data=(x_test, y_test),
+    model.fit(x=(x_train, y_train), y=(y_train, x_train), batch_size=args.batch_size, epochs=args.epochs,
+              validation_data=(x_test, (y_test, x_test)),
               callbacks=[lr_decay, WeightsSaver(args.training_save_dir, args.save_freq)])
 
     # Save final weights at the end of the training

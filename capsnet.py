@@ -1,9 +1,9 @@
 import tensorflow as tf
 
-from tensorflow.keras.layers import Input, Conv2D, Lambda
+from tensorflow.keras.layers import Input, Conv2D, Lambda, Dense, Reshape
 from tensorflow.keras import Model
 
-from capslayers import PrimaryCaps, ClassCaps, compute_vectors_length
+from capslayers import PrimaryCaps, ClassCaps, compute_vectors_length, mask
 
 
 class CapsuleNet(Model):
@@ -24,6 +24,7 @@ class CapsuleNet(Model):
         super(CapsuleNet, self).__init__(name=name)
         self.in_shape = input_shape
 
+        # --- Encoder ---
         # Layer 1: ReLU Convolutional Layer
         self.conv1 = Conv2D(input_shape=input_shape, data_format='channels_last',
                             filters=256, kernel_size=9, strides=1,
@@ -38,28 +39,68 @@ class CapsuleNet(Model):
         self.digit_caps = ClassCaps(
             n_capsules=n_class, out_dim_capsule=16, r_iter=r_iter, name='digit_caps')
 
-        # Layer 3.5: A convenience layer to calculate vectors' length
+        # Layer 4: A convenience layer to calculate vectors' length
         self.vec_len = Lambda(compute_vectors_length, name='vec_len')
+
+        # --- Decoder ---
+        # Layer 1: A convenience layer to computed the masked capsules' output
+        self.mask = Lambda(mask, name="mask")
+
+        # Layer 2-4: Three Dense layer for the image reconstruction
+        self.dense1 = Dense(
+            512,
+            activation='relu',
+            input_dim=16*n_class,
+            name="dense_1")
+
+        self.dense2 = Dense(
+            1024,
+            activation='relu',
+            name="dense_2")
+
+        self.dense3 = Dense(
+            tf.math.reduce_prod(input_shape),
+            activation='sigmoid',
+            name="dense_3")
+
+        # Layer 5: Reshape the output as the image provided in input
+        self.reshape = Reshape(target_shape=input_shape,
+                               name='img_reconstructed')
 
     def call(self, inputs, training=False):
         """CapsNet's forward pass.
         """
+        # During training, input for the decoder is masked by labels y
+        if training:
+            inputs, y = inputs
+
+        # --- Encoder ---
         # Conv1 shape out:          (batch_size, 20, 20, 256)
-        x = self.conv1(inputs)
+        conv_out = self.conv1(inputs)
 
         # PrimaryCaps shape out:    (batch_size, 1152, 8)
-        x = self.primary_caps(x)
+        caps1_out = self.primary_caps(conv_out)
 
         # DigitCaps shape out:      (batch_size, 10, 16)
-        x = self.digit_caps(x)
+        caps2_out = self.digit_caps(caps1_out)
 
         # VecLen shape out:         (batch_size, 10)
-        x = self.vec_len(x)
+        out1 = self.vec_len(caps2_out)
 
-        return x
+        # --- Decoder ---
+        caps2_masked = self.mask((caps2_out, y) if training else caps2_out)
+
+        out2 = self.dense1(caps2_masked)
+        out2 = self.dense2(out2)
+        out2 = self.dense3(out2)
+
+        out2 = self.reshape(out2)
+
+        return (out1, out2)
 
     def summary(self, batch_size):
         """Override summary to infer output shape of each layer.
         """
-        tmp = Input(shape=self.in_shape, batch_size=batch_size, name="input_images")
+        tmp = Input(shape=self.in_shape,
+                    batch_size=batch_size, name="input_images")
         return Model(inputs=tmp, outputs=self.call(tmp), name=self.name).summary()

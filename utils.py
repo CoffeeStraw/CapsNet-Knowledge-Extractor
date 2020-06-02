@@ -24,7 +24,7 @@ def parse_args():
                     help="The path of the saved weights. Should be specified when testing")
 
     # Training
-    parser.add_argument('--epochs', default=50, type=int, help="Number of epochs for the training.")
+    parser.add_argument('--epochs', default=10, type=int, help="Number of epochs for the training.")
     parser.add_argument('--batch_size', default=100, type=int, help="Size of the batch used for the training.")
     parser.add_argument('--lr', default=0.001, type=float,
                         help="Initial learning rate")
