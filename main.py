@@ -8,6 +8,7 @@ Author: Antonio Strippoli
 import tensorflow as tf
 from tensorflow.keras import optimizers, callbacks
 from tensorflow.keras.utils import to_categorical
+from tensorflowjs.converters import save_keras_model
 
 # Import CapsuleNetwork model for MNIST classification
 from capsnet import CapsuleNet
@@ -69,7 +70,7 @@ def train(model, data, args):
     model.compile(optimizer=optimizers.Adam(lr=args.lr),
                   loss=[margin_loss, 'mse'],
                   loss_weights=[1., args.lam_recon],
-                  metrics={'output_1': 'accuracy'})
+                  metrics=['accuracy'])
 
     # Define a callback to reduce learning rate
     lr_decay = callbacks.LearningRateScheduler(
@@ -82,17 +83,18 @@ def train(model, data, args):
             self.save_freq = save_freq
             self.epoch = 1
 
-        def on_batch_end(self, batch, logs={}):
-            if batch % self.save_freq == 0:
-                filename = f'{self.save_dir}/{self.epoch}-{batch}.h5'
-                self.model.save_weights(filename)
-
         def on_epoch_end(self, epoch, logs={}):
             self.epoch += 1
 
-    # Simple training without data augmentation:
+        def on_batch_end(self, batch, logs={}):
+            if batch % self.save_freq == 0:
+                # Save weights for Javascript's TF
+                save_name = f'{self.save_dir}/{self.epoch}-{batch}'
+                save_keras_model(self.model, save_name)
+
+    # Simple training without data augmentation
     model.fit(x=(x_train, y_train), y=(y_train, x_train), batch_size=args.batch_size, epochs=args.epochs,
-              validation_data=(x_test, (y_test, x_test)),
+              validation_data=((x_test, y_test), (y_test, x_test)),
               callbacks=[lr_decay, WeightsSaver(args.training_save_dir, args.save_freq)])
 
     # Save final weights at the end of the training
@@ -112,13 +114,15 @@ if __name__ == "__main__":
     (x_train, y_train), (x_test, y_test) = load_mnist()
 
     # Instantiate Capsule Network Model
-    model = CapsuleNet(
+    model, _ = CapsuleNet(
         input_shape=x_train.shape[1:],
+        batch_size=args.batch_size,
         n_class=y_train.shape[1],
         r_iter=3)
 
     # Show a complete summary
-    model.summary(batch_size=args.batch_size)
+    # model.summary(batch_size=args.batch_size)
+    model.summary()
 
     # Train!
     model = train(

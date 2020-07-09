@@ -10,8 +10,13 @@ class PrimaryCaps(Layer):
     A PrimaryCaps layer. More info To Be Added.
     """
 
-    def __init__(self, n_capsules, out_dim_capsule, kernel_size, strides, padding, name="primary_caps"):
-        super(PrimaryCaps, self).__init__(name=name)
+    def __init__(self, n_capsules, out_dim_capsule, kernel_size, strides, padding, **kwargs):
+        super(PrimaryCaps, self).__init__(**kwargs)
+        self.n_capsules = n_capsules
+        self.out_dim_capsule = out_dim_capsule
+        self.kernel_size = kernel_size
+        self.strides = strides
+        self.padding = padding
 
         # Apply Convolution n_capsules times
         self.conv2d = Conv2D(filters=n_capsules*out_dim_capsule, kernel_size=kernel_size, strides=strides, padding=padding,
@@ -23,6 +28,17 @@ class PrimaryCaps(Layer):
 
         # Squash the vectors output
         self.squash = Lambda(_squash, name='primarycaps_squash')
+    
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({
+            'n_capsules': self.n_capsules,
+            'out_dim_capsule': self.out_dim_capsule,
+            'kernel_size': self.kernel_size,
+            'strides': self.strides,
+            'padding': self.padding,
+        })
+        return config
 
     def call(self, inputs):
         x = self.conv2d(inputs)
@@ -39,12 +55,21 @@ class ClassCaps(Layer):
         r_iter: Number of routing iterations.
     """
 
-    def __init__(self, n_capsules, out_dim_capsule, r_iter=3, name="digit_caps"):
-        super(ClassCaps, self).__init__(name=name)
+    def __init__(self, n_capsules, out_dim_capsule, r_iter=3, **kwargs):
+        super(ClassCaps, self).__init__(**kwargs)
 
         self.n_capsules = n_capsules
         self.out_dim_capsule = out_dim_capsule
         self.r_iter = r_iter
+
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({
+            'n_capsules': self.n_capsules,
+            'out_dim_capsule': self.out_dim_capsule,
+            'r_iter': self.r_iter,
+        })
+        return config
 
     def build(self, input_shape):
         assert len(
