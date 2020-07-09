@@ -13,7 +13,7 @@ def parse_args():
     
     # General
     parser.add_argument('--save_dir', default='result', help="The directory that will contains every output of the execution.")
-    parser.add_argument('--save_freq', default=10, type=int, help="The number of batches after which weights are saved.")
+    parser.add_argument('--save_freq', default=100, type=int, help="The number of batches after which weights are saved.")
 
     # Testing or training?
     parser.add_argument('-t', '--testing', action='store_true',
@@ -41,7 +41,7 @@ def parse_args():
     args = parser.parse_args()
 
     # Construct save dir path for training weights
-    args.training_save_dir = os.path.join(args.save_dir, 'training_weights')
+    args.training_save_dir = os.path.join(args.save_dir, 'training')
 
     # Creating results directories, if they do not exist
     if not os.path.exists(args.save_dir):
