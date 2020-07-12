@@ -128,7 +128,6 @@ if __name__ == "__main__":
         "input_shape": x_train.shape[1:],
         "batch_size": args.batch_size,
         "n_class": y_train.shape[1],
-        "r_iter": 3,
     }
     pickle_dump(model_params, os_path_join(args.save_dir, "model_params.pkl"))
 

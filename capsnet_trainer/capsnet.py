@@ -6,7 +6,7 @@ from tensorflow.keras.models import Sequential, Model
 from capslayers import PrimaryCaps, ClassCaps, compute_vectors_length, mask
 
 
-def CapsuleNet(input_shape, batch_size, n_class, r_iter=3, name="CapsNet_MNIST"):
+def CapsuleNet(input_shape, batch_size, n_class, name="CapsNet_MNIST"):
     """Capsule Network model implementation, used for MNIST dataset training.
 
     The structure used for the implementation
@@ -16,8 +16,8 @@ def CapsuleNet(input_shape, batch_size, n_class, r_iter=3, name="CapsNet_MNIST")
 
     Arguments:
         input_shape: 3-Dimensional data shape (width, height, channels).
+        batch_size: Size of the batches of the inputs.
         n_class: Number of classes.
-        r_iter: Number of routing iterations.
     """
     # --- Encoder ---
     x = Input(shape=input_shape, batch_size=batch_size)
@@ -47,7 +47,7 @@ def CapsuleNet(input_shape, batch_size, n_class, r_iter=3, name="CapsNet_MNIST")
     # Layer 3: DigitCaps Layer: since routing it is computed only
     # between two consecutive capsule layers, it only happens here
     digit_caps = ClassCaps(
-        n_capsules=n_class, out_dim_capsule=16, r_iter=r_iter, name="digit_caps"
+        n_capsules=n_class, out_dim_capsule=16, name="digit_caps"
     )(primary_caps)
 
     # Layer 4: A convenience layer to calculate vectors' length
