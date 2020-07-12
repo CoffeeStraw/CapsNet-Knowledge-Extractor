@@ -1,7 +1,13 @@
 import tensorflow as tf
 
 from tensorflow.keras.layers import Layer, Conv2D, Reshape, Lambda
-from tensorflow.keras.backend import epsilon, one_hot, argmax, batch_flatten, expand_dims
+from tensorflow.keras.backend import (
+    epsilon,
+    one_hot,
+    argmax,
+    batch_flatten,
+    expand_dims,
+)
 from tensorflow.keras import initializers
 
 
@@ -10,7 +16,9 @@ class PrimaryCaps(Layer):
     A PrimaryCaps layer. More info To Be Added.
     """
 
-    def __init__(self, n_capsules, out_dim_capsule, kernel_size, strides, padding, **kwargs):
+    def __init__(
+        self, n_capsules, out_dim_capsule, kernel_size, strides, padding, **kwargs
+    ):
         super(PrimaryCaps, self).__init__(**kwargs)
         self.n_capsules = n_capsules
         self.out_dim_capsule = out_dim_capsule
@@ -19,25 +27,33 @@ class PrimaryCaps(Layer):
         self.padding = padding
 
         # Apply Convolution n_capsules times
-        self.conv2d = Conv2D(filters=n_capsules*out_dim_capsule, kernel_size=kernel_size, strides=strides, padding=padding,
-                             name='primarycaps_conv2d')
+        self.conv2d = Conv2D(
+            filters=n_capsules * out_dim_capsule,
+            kernel_size=kernel_size,
+            strides=strides,
+            padding=padding,
+            name="primarycaps_conv2d",
+        )
 
         # Reshape the convolutional layer output
         self.reshape = Reshape(
-            target_shape=[-1, out_dim_capsule], name='primarycaps_reshape')
+            target_shape=[-1, out_dim_capsule], name="primarycaps_reshape"
+        )
 
         # Squash the vectors output
-        self.squash = Lambda(_squash, name='primarycaps_squash')
-    
+        self.squash = Lambda(_squash, name="primarycaps_squash")
+
     def get_config(self):
         config = super().get_config().copy()
-        config.update({
-            'n_capsules': self.n_capsules,
-            'out_dim_capsule': self.out_dim_capsule,
-            'kernel_size': self.kernel_size,
-            'strides': self.strides,
-            'padding': self.padding,
-        })
+        config.update(
+            {
+                "n_capsules": self.n_capsules,
+                "out_dim_capsule": self.out_dim_capsule,
+                "kernel_size": self.kernel_size,
+                "strides": self.strides,
+                "padding": self.padding,
+            }
+        )
         return config
 
     def call(self, inputs):
@@ -64,25 +80,33 @@ class ClassCaps(Layer):
 
     def get_config(self):
         config = super().get_config().copy()
-        config.update({
-            'n_capsules': self.n_capsules,
-            'out_dim_capsule': self.out_dim_capsule,
-            'r_iter': self.r_iter,
-        })
+        config.update(
+            {
+                "n_capsules": self.n_capsules,
+                "out_dim_capsule": self.out_dim_capsule,
+                "r_iter": self.r_iter,
+            }
+        )
         return config
 
     def build(self, input_shape):
-        assert len(
-            input_shape) >= 3, "The input Tensor should have shape=[None, input_n_capsules, input_out_dim_capsule]"
+        assert (
+            len(input_shape) >= 3
+        ), "The input Tensor should have shape=[None, input_n_capsules, input_out_dim_capsule]"
         self.input_n_capsules = input_shape[1]
         self.input_out_dim_capsule = input_shape[2]
 
         # Transform matrix, from each input capsule to each output capsule, there's a unique weight as in Dense layer.
-        self.W = self.add_weight(shape=[self.n_capsules, self.input_n_capsules,
-                                        self.out_dim_capsule, self.input_out_dim_capsule],
-                                 initializer=initializers.get(
-                                     'glorot_uniform'),
-                                 name='W')
+        self.W = self.add_weight(
+            shape=[
+                self.n_capsules,
+                self.input_n_capsules,
+                self.out_dim_capsule,
+                self.input_out_dim_capsule,
+            ],
+            initializer=initializers.get("glorot_uniform"),
+            name="W",
+        )
 
     def call(self, inputs):
         # Prepare input to be multiplied by W
@@ -92,12 +116,12 @@ class ClassCaps(Layer):
 
         # Compute `inputs * W` by scanning inputs_tiled on dimension 0.
         inputs_hat = tf.squeeze(
-            tf.map_fn(lambda x: tf.matmul(self.W, x), elems=inputs_tiled))
+            tf.map_fn(lambda x: tf.matmul(self.W, x), elems=inputs_tiled)
+        )
 
         # ROUTING ALGORITHM
         # The prior for coupling coefficient, initialized as zeros
-        b = tf.zeros(
-            shape=[inputs.shape[0], self.n_capsules, 1, self.input_n_capsules])
+        b = tf.zeros(shape=[inputs.shape[0], self.n_capsules, 1, self.input_n_capsules])
 
         for i in range(self.r_iter):
             # Line 4, computes Eq.(3)
@@ -132,8 +156,7 @@ def mask(inputs):
         # Calculate the mask by the max length of capsules.
         x = compute_vectors_length(inputs)
         # Generate one-hot encoded mask
-        mask = one_hot(indices=argmax(x, 1),
-                       num_classes=x.get_shape().as_list()[1])
+        mask = one_hot(indices=argmax(x, 1), num_classes=x.get_shape().as_list()[1])
 
     # Mask the inputs
     masked = batch_flatten(inputs * expand_dims(mask, -1))
@@ -165,6 +188,5 @@ def _squash(vectors, axis=-1):
         A tensor with the same shape as input vectors, but squashed in 'vec_len' dimension.
     """
     s_squared_norm = tf.reduce_sum(tf.square(vectors), axis, keepdims=True)
-    scale = s_squared_norm / (1 + s_squared_norm) / \
-        tf.sqrt(s_squared_norm + epsilon())
+    scale = s_squared_norm / (1 + s_squared_norm) / tf.sqrt(s_squared_norm + epsilon())
     return scale * vectors

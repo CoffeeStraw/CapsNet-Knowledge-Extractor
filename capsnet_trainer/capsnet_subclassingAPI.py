@@ -28,21 +28,35 @@ class CapsuleNet(Model):
 
         # --- Encoder ---
         # Layer 1: ReLU Convolutional Layer
-        self.conv1 = Conv2D(input_shape=input_shape, data_format='channels_last',
-                            filters=128, kernel_size=9, strides=1,
-                            padding='valid', activation='relu', name='conv1')
+        self.conv1 = Conv2D(
+            input_shape=input_shape,
+            data_format="channels_last",
+            filters=128,
+            kernel_size=9,
+            strides=1,
+            padding="valid",
+            activation="relu",
+            name="conv1",
+        )
 
         # Layer 2: PrimaryCaps Layer
         self.primary_caps = PrimaryCaps(
-            n_capsules=16, out_dim_capsule=8, kernel_size=9, strides=2, padding='valid', name='primary_caps')
+            n_capsules=16,
+            out_dim_capsule=8,
+            kernel_size=9,
+            strides=2,
+            padding="valid",
+            name="primary_caps",
+        )
 
         # Layer 3: DigitCaps Layer: since routing it is computed only
         # between two consecutive capsule layers, it only happens here
         self.digit_caps = ClassCaps(
-            n_capsules=n_class, out_dim_capsule=16, r_iter=r_iter, name='digit_caps')
+            n_capsules=n_class, out_dim_capsule=16, r_iter=r_iter, name="digit_caps"
+        )
 
         # Layer 4: A convenience layer to calculate vectors' length
-        self.vec_len = Lambda(compute_vectors_length, name='vec_len')
+        self.vec_len = Lambda(compute_vectors_length, name="vec_len")
 
         # --- Decoder ---
         # Layer 1: A convenience layer to compute the masked capsules' output
@@ -50,30 +64,23 @@ class CapsuleNet(Model):
 
         # Layer 2-4: Three Dense layer for the image reconstruction
         self.dense1 = Dense(
-            256,
-            activation='relu',
-            input_dim=16*n_class,
-            name="dense_1")
+            256, activation="relu", input_dim=16 * n_class, name="dense_1"
+        )
 
-        self.dense2 = Dense(
-            512,
-            activation='relu',
-            name="dense_2")
+        self.dense2 = Dense(512, activation="relu", name="dense_2")
 
         self.dense3 = Dense(
-            tf.math.reduce_prod(input_shape),
-            activation='sigmoid',
-            name="dense_3")
+            tf.math.reduce_prod(input_shape), activation="sigmoid", name="dense_3"
+        )
 
         # Layer 5: Reshape the output as the image provided in input
-        self.reshape = Reshape(target_shape=input_shape,
-                               name='img_reconstructed')
+        self.reshape = Reshape(target_shape=input_shape, name="img_reconstructed")
 
     def call(self, inputs, training=False):
         """CapsNet's forward pass.
         """
         print(training)
-        print(inputs, type(inputs) is tuple, end='\n\n')
+        print(inputs, type(inputs) is tuple, end="\n\n")
         training = type(inputs) is tuple
         # During training, input for the decoder is masked by labels y
         if training:
@@ -106,6 +113,5 @@ class CapsuleNet(Model):
     def summary(self, batch_size):
         """Override summary to infer output shape of each layer.
         """
-        tmp = Input(shape=self.in_shape,
-                    batch_size=batch_size, name="input_images")
+        tmp = Input(shape=self.in_shape, batch_size=batch_size, name="input_images")
         return Model(inputs=tmp, outputs=self.call(tmp), name=self.name).summary()
