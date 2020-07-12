@@ -5,14 +5,18 @@ Author: Antonio Strippoli
 """
 import os
 import argparse
+import pickle
 
 
 def parse_args():
+    """
+    Parses arguments from command line and returns them.
+    """
     # Getting/setting the hyper-parameters
     parser = argparse.ArgumentParser(description="Capsule Network on MNIST.")
     
     # General
-    parser.add_argument('--save_dir', default='result', help="The directory that will contains every output of the execution.")
+    parser.add_argument('--save_dir', default='flaskr/data', help="The directory that will contains every output of the execution. Relative to project directory.")
     parser.add_argument('--save_freq', default=100, type=int, help="The number of batches after which weights are saved.")
 
     # Testing or training?
@@ -44,9 +48,27 @@ def parse_args():
     args.training_save_dir = os.path.join(args.save_dir, 'training')
 
     # Creating results directories, if they do not exist
+    project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if not os.path.exists(args.save_dir):
-        os.mkdir(args.save_dir)
+        os.mkdir(os.path.join(project_dir, args.save_dir))
     if not os.path.exists(args.training_save_dir):
-        os.mkdir(args.training_save_dir)
+        os.mkdir(os.path.join(project_dir, args.training_save_dir))
 
     return args
+
+
+def pickle_dump(obj, path):
+    """
+    Save a serializable object with pickle,
+    to reduce verbosity in the main file.
+    """
+    with open(path, 'wb') as f:
+        pickle.dump(obj, f)
+
+
+def pickle_load(path):
+    """
+    Loads a serialized object with pickle.
+    """
+    with open(path, 'rb') as f:
+        return pickle.load(f)

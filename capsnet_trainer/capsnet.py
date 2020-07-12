@@ -44,7 +44,7 @@ def CapsuleNet(input_shape, batch_size, n_class, r_iter=3, name="CapsNet_MNIST")
 
     # Layer 1: A convenience layer to compute the masked capsules' output
     masked = Lambda(mask, name="masked")(digit_caps)  # Mask using the capsule with maximal length. For prediction
-    masked_by_y = Lambda(mask, name="masked_by_y")((digit_caps, y))  # The true label is used to mask the output of capsule layer. For training
+    masked_by_y = Lambda(mask, name="masked_by_y")([digit_caps, y])  # The true label is used to mask the output of capsule layer. For training
 
     # Layer 2-4: Three Dense layer for the image reconstruction
     decoder = Sequential(name='decoder')

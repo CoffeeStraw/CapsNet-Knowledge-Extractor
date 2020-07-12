@@ -139,4 +139,4 @@ cython_debug/
 
 # Custom
 tensorflow-*
-result/
+data/

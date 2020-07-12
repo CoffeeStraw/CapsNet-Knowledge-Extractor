@@ -123,10 +123,11 @@ def mask(inputs):
         inputs: Either a tensor to be masked (output of the class capsules)
                 or a tensor with both the tensor and an additional input mask
     """
-    # Mask is provided?
+    # Mask provided?
     if type(inputs) is tuple:
-        # Unpack
         inputs, mask = inputs
+    elif type(inputs) is list:
+        inputs, mask = inputs[0], inputs[1]
     else:
         # Calculate the mask by the max length of capsules.
         x = compute_vectors_length(inputs)

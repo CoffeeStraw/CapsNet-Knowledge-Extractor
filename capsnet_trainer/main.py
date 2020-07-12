@@ -3,18 +3,19 @@ CapsuleNetwork TF 2.2 Implementation
 Original Work: Xifeng Guo (https://github.com/XifengGuo/CapsNet-Keras)
 Author: Antonio Strippoli
 """
+# General imports
+from os.path import join as os_path_join
 
 # Import TensorFlow & Keras
 import tensorflow as tf
 from tensorflow.keras import optimizers, callbacks
 from tensorflow.keras.utils import to_categorical
-from tensorflowjs.converters import save_keras_model
 
 # Import CapsuleNetwork model for MNIST classification
 from capsnet import CapsuleNet
 
 # Import some utilities
-from utils import parse_args
+from utils import parse_args, pickle_dump
 
 
 def load_mnist():
@@ -88,9 +89,9 @@ def train(model, data, args):
 
         def on_batch_end(self, batch, logs={}):
             if batch % self.save_freq == 0:
-                # Save weights for Javascript's TF
-                save_name = f'{self.save_dir}/{self.epoch}-{batch}'
-                save_keras_model(self.model, save_name)
+                # Save model current state for later visualization
+                save_name = os_path_join(self.save_dir, f'{self.epoch}-{batch}.h5')
+                self.model.save_weights(save_name)
 
     # Simple training without data augmentation
     model.fit(x=(x_train, y_train), y=(y_train, x_train), batch_size=args.batch_size, epochs=args.epochs,
@@ -98,7 +99,7 @@ def train(model, data, args):
               callbacks=[lr_decay, WeightsSaver(args.training_save_dir, args.save_freq)])
 
     # Save final weights at the end of the training
-    model.save_weights(args.save_dir + '/trained_model.h5')
+    model.save_weights(os_path_join(args.save_dir, 'trained.h5'))
     return model
 
 
@@ -113,15 +114,19 @@ if __name__ == "__main__":
     # Load MNIST dataset
     (x_train, y_train), (x_test, y_test) = load_mnist()
 
+    # Set model args and save them for later model reinstantiation
+    model_params = {
+        'input_shape': x_train.shape[1:],
+        'batch_size': args.batch_size,
+        'n_class': y_train.shape[1],
+        'r_iter': 3
+    }
+    pickle_dump(model_params, os_path_join(args.save_dir, 'model_params.pkl'))
+
     # Instantiate Capsule Network Model
-    model, _ = CapsuleNet(
-        input_shape=x_train.shape[1:],
-        batch_size=args.batch_size,
-        n_class=y_train.shape[1],
-        r_iter=3)
+    model, _ = CapsuleNet(**model_params)
 
     # Show a complete summary
-    # model.summary(batch_size=args.batch_size)
     model.summary()
 
     # Train!
