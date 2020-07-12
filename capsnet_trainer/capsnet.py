@@ -46,9 +46,9 @@ def CapsuleNet(input_shape, batch_size, n_class, name="CapsNet_MNIST"):
 
     # Layer 3: DigitCaps Layer: since routing it is computed only
     # between two consecutive capsule layers, it only happens here
-    digit_caps = ClassCaps(
-        n_capsules=n_class, out_dim_capsule=16, name="digit_caps"
-    )(primary_caps)
+    digit_caps = ClassCaps(n_capsules=n_class, out_dim_capsule=16, name="digit_caps")(
+        primary_caps
+    )
 
     # Layer 4: A convenience layer to calculate vectors' length
     vec_len = Lambda(compute_vectors_length, name="vec_len")(digit_caps)
