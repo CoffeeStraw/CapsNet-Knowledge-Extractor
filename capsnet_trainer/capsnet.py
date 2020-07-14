@@ -24,8 +24,6 @@ def CapsuleNet(input_shape, batch_size, n_class, name="CapsNet_MNIST"):
 
     # Layer 1: ReLU Convolutional Layer
     conv1 = Conv2D(
-        input_shape=input_shape,
-        data_format="channels_last",
         filters=128,
         kernel_size=9,
         strides=1,

@@ -79,9 +79,9 @@ class CapsuleNet(Model):
     def call(self, inputs, training=False):
         """CapsNet's forward pass.
         """
-        print(training)
-        print(inputs, type(inputs) is tuple, end="\n\n")
-        training = type(inputs) is tuple
+        # Fix?
+        # training = type(inputs) is tuple
+
         # During training, input for the decoder is masked by labels y
         if training:
             inputs, y = inputs

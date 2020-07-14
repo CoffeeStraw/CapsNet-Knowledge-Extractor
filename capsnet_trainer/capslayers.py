@@ -36,9 +36,7 @@ class PrimaryCaps(Layer):
         )
 
         # Reshape the convolutional layer output
-        self.reshape = Reshape(
-            target_shape=[-1, out_dim_capsule], name="primarycaps_reshape"
-        )
+        self.reshape = Reshape((-1, out_dim_capsule), name="primarycaps_reshape")
 
         # Squash the vectors output
         self.squash = Lambda(_squash, name="primarycaps_squash")
@@ -134,7 +132,7 @@ class ClassCaps(Layer):
             if i < self.r_iter - 1:
                 b += tf.matmul(outputs, inputs_hat, transpose_b=True)
 
-        return tf.squeeze(outputs)
+        return tf.squeeze(outputs, axis=2)
 
 
 def mask(inputs):
@@ -156,7 +154,7 @@ def mask(inputs):
         # Calculate the mask by the max length of capsules.
         x = compute_vectors_length(inputs)
         # Generate one-hot encoded mask
-        mask = one_hot(indices=argmax(x, 1), num_classes=x.get_shape().as_list()[1])
+        mask = one_hot(indices=argmax(x, 1), num_classes=x.get_shape().as_list()[-1])
 
     # Mask the inputs
     masked = batch_flatten(inputs * expand_dims(mask, -1))
