@@ -35,7 +35,7 @@ def create_app():
         return buildNN(x_test[index_img])
 
     # TESTING, to be removed
-    api_buildNN()
-    quit()
+    # api_buildNN()
+    # quit()
 
     return app
