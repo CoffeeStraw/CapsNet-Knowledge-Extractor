@@ -99,14 +99,14 @@ def parse_args():
     args = parser.parse_args()
 
     # Construct save dir path for training weights
-    args.training_save_dir = os.path.join(args.save_dir, "training")
+    args.weights_save_dir = os.path.join(args.save_dir, "weights")
 
     # Creating results directories, if they do not exist
     project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if not os.path.exists(args.save_dir):
         os.mkdir(os.path.join(project_dir, args.save_dir))
-    if not os.path.exists(args.training_save_dir):
-        os.mkdir(os.path.join(project_dir, args.training_save_dir))
+    if not os.path.exists(args.weights_save_dir):
+        os.mkdir(os.path.join(project_dir, args.weights_save_dir))
 
     return args
 

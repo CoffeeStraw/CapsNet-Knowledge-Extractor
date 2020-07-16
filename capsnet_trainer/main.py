@@ -86,11 +86,11 @@ def train(model, data, args):
         batch_size=args.batch_size,
         epochs=args.epochs,
         validation_data=((x_test, y_test), (y_test, x_test)),
-        callbacks=[lr_decay, WeightsSaver(args.training_save_dir, args.save_freq)],
+        callbacks=[lr_decay, WeightsSaver(args.weights_save_dir, args.save_freq)],
     )
 
     # Save final weights at the end of the training
-    model.save_weights(os_path_join(args.save_dir, "trained.h5"))
+    model.save_weights(os_path_join(args.weights_save_dir, "trained.h5"))
     return model
 
 
