@@ -8,6 +8,7 @@ import sys
 
 curr_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.join(curr_dir, "data")
+img_dir = os.path.join(data_dir, "images")
 
 # Import TensorFlow & Keras
 import tensorflow as tf
@@ -25,44 +26,93 @@ import PIL.Image as pil
 
 def buildNN(image):
     """
-    Returns a JSON with preprocess Neural Network
-    with the given image.
+    Returns a JSON with the layers' name
+    and the predicted value for the given image
     """
+    # Create images directory (if not exists)
+    if not os.path.exists(img_dir):
+        os.mkdir(img_dir)
+
+    # Save image for later visualization
+    pil.fromarray(image).save(os.path.join(img_dir, "curr_image.jpeg"))
+
     # Preprocess image
     prep_image = image.reshape(-1, 28, 28, 1).astype("float32") / 255.0
-    
+
     # Load model params
     model_params = pickle_load(os.path.join(data_dir, "model_params.pkl"))
     model_params["batch_size"] = 1
 
     # Prepare model
     _, model = CapsuleNet(**model_params)
-    filename = "2-0.h5"
-    model.load_weights(os.path.join(data_dir, "training", filename))
 
-    # Create a temporary model to retrieve all the layers' output
-    # Access all the layers outputs, except first one (input) and last one (dense layer, useless to visualize)
-    layer_outputs = [layer.output for layer in model.layers[1:-1]]
-    activation_model = Model(model.input, layer_outputs)
+    for weights_filename in os.listdir(os.path.join(data_dir, "weights")):
+        # Prepare images directory for the current instance
+        instance_name = os.path.splitext(weights_filename)[0]
+        instance_img_dir = os.path.join(img_dir, instance_name)
+        if not os.path.exists(instance_img_dir):
+            os.mkdir(instance_img_dir)
 
-    # DEBUG: show first image of mnist dataset
-    pil.fromarray(image).show()
+        # Load weights
+        model.load_weights(os.path.join(data_dir, "weights", weights_filename))
 
-    # Save convolutional network images
-    activations = activation_model(prep_image)
-    conv_act = tf.multiply(activations[0][0], 255.0)
+        # Since we are not interested in every layer's output, we filter them
+        def processable_layer(layer):
+            keys = ["conv", "caps"]
+            layer_name = layer.name
+            for key in keys:
+                if key in layer_name:
+                    return True
+            return False
 
-    for i in range(conv_act.shape[-1]):
-        filter = conv_act[:, :, i].numpy()
-        pil.fromarray(filter).show()
+        # Create a temporary model to retrieve all the layers' output
+        layers_outputs = [
+            layer.output for layer in filter(processable_layer, model.layers)
+        ]
+        activation_model = Model(model.input, layers_outputs)
+
+        # Get layers activations
+        activations = activation_model(prep_image)
+
+        for layer_name, act in zip([out.name for out in layers_outputs], activations):
+            # Extract from batch
+            act = act[0]
+
+            # Prepare directory for the layer
+            layer_name = layer_name.lower().split("/")[0]
+            layer_img_dir = os.path.join(instance_img_dir, layer_name)
+            if not os.path.exists(layer_img_dir):
+                os.mkdir(layer_img_dir)
+
+            # === Process layer activation based on type ===
+            # Convolutional layer?
+            if "conv" in layer_name:
+                # Save features
+                act = tf.multiply(act, 255.0)
+                for i in range(act.shape[-1]):
+                    feature = act[:, :, i].numpy()
+                    pil.fromarray(feature).convert("L").save(
+                        os.path.join(layer_img_dir, f"{i}.jpeg")
+                    )
+
+                # Save filters (TODO?)
+                pass
+
+            # Primary Caps layer?
+            elif "primary" in layer_name and "caps" in layer_name:
+                pass
+
+            # Class Caps layer?
+            elif "caps" in layer_name:
+                pass
+
+        """
+        # print(prediction)
+        print(np.argmax(prediction, 1)[0])
+        
+        img_reconstructed = tf.multiply(img_reconstructed, 255.0)
+        img_reconstructed = tf.squeeze(img_reconstructed)
+        img_reconstructed = img_reconstructed.numpy()
+        pil.fromarray(img_reconstructed).show()
+        """
         quit()
-
-    """
-    # print(prediction)
-    print(np.argmax(prediction, 1)[0])
-    
-    img_reconstructed = tf.multiply(img_reconstructed, 255.0)
-    img_reconstructed = tf.squeeze(img_reconstructed)
-    img_reconstructed = img_reconstructed.numpy()
-    pil.fromarray(img_reconstructed).show()
-    """
