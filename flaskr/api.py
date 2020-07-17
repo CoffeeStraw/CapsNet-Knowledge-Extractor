@@ -17,6 +17,7 @@ from tensorflow.keras.models import Model
 # Custom layers and functions imports
 sys.path.append(os.path.join(os.path.dirname(curr_dir), "capsnet_trainer"))
 from capsnet import CapsuleNet
+from capslayers import compute_vectors_length
 from utils import pickle_load
 
 # Temporary imports for number visualization
@@ -57,7 +58,7 @@ def buildNN(image):
         model.load_weights(os.path.join(data_dir, "weights", weights_filename))
 
         # Since we are not interested in every layer's output, we filter them
-        def processable_layer(layer):
+        def is_layer_processable(layer):
             keys = ["conv", "caps"]
             layer_name = layer.name
             for key in keys:
@@ -66,20 +67,21 @@ def buildNN(image):
             return False
 
         # Create a temporary model to retrieve all the layers' output
-        layers_outputs = [
-            layer.output for layer in filter(processable_layer, model.layers)
-        ]
+        processable_layers = list(filter(is_layer_processable, model.layers))
+        layers_outputs = [layer.output for layer in processable_layers]
         activation_model = Model(model.input, layers_outputs)
 
         # Get layers activations
         activations = activation_model(prep_image)
 
-        for layer_name, act in zip([out.name for out in layers_outputs], activations):
+        for layer, act in zip(processable_layers, activations):
+            # Get layer config
+            config = layer.get_config()
             # Extract from batch
             act = act[0]
 
             # Prepare directory for the layer
-            layer_name = layer_name.lower().split("/")[0]
+            layer_name = config["name"]
             layer_img_dir = os.path.join(instance_img_dir, layer_name)
             if not os.path.exists(layer_img_dir):
                 os.mkdir(layer_img_dir)
@@ -100,19 +102,38 @@ def buildNN(image):
 
             # Primary Caps layer?
             elif "primary" in layer_name and "caps" in layer_name:
-                pass
+                # =====
+                # Vectors are high-dimensional,
+                # the only interesting way to visualize is in which area the capsule
+                # activated, so we visualize capsules' length
+                # =====
+                # Get new features' dimension
+                feature_dim = int(
+                    (layer.input_shape[1] - config["kernel_size"] + 1)
+                    / config["strides"]
+                )
+                # Compute vectors' length and reshape
+                act = tf.reshape(
+                    compute_vectors_length(act), (feature_dim, feature_dim, -1)
+                )
+                # Save as images resized as the input (TODO, for now values are hardcoded)
+                act = tf.multiply(act, 255.0)
+                for i in range(act.shape[-1]):
+                    capsules_length = act[:, :, i].numpy()
+                    pil.fromarray(capsules_length).convert("L").resize(
+                        (28, 28), pil.NEAREST
+                    ).save(os.path.join(layer_img_dir, f"{i}.jpeg"))
 
             # Class Caps layer?
             elif "caps" in layer_name:
                 pass
 
-        """
-        # print(prediction)
-        print(np.argmax(prediction, 1)[0])
-        
-        img_reconstructed = tf.multiply(img_reconstructed, 255.0)
-        img_reconstructed = tf.squeeze(img_reconstructed)
-        img_reconstructed = img_reconstructed.numpy()
-        pil.fromarray(img_reconstructed).show()
-        """
-        quit()
+    """
+    # print(prediction)
+    print(np.argmax(prediction, 1)[0])
+    
+    img_reconstructed = tf.multiply(img_reconstructed, 255.0)
+    img_reconstructed = tf.squeeze(img_reconstructed)
+    img_reconstructed = img_reconstructed.numpy()
+    pil.fromarray(img_reconstructed).show()
+    """

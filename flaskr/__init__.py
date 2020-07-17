@@ -26,9 +26,11 @@ def create_app():
         Note that an image has to be passed in the POST request.
         """
         # TODO: Get Image file from POST req
-        
+        pass
+
         # Testing: get image from mnist dataset
         from tensorflow.keras.datasets import mnist
+
         _, (x_test, _) = mnist.load_data()
         index_img = 0  # Arbitrary index
 
