@@ -146,9 +146,7 @@ def mask(inputs):
                 or a tensor with both the tensor and an additional input mask
     """
     # Mask provided?
-    if type(inputs) is tuple:
-        inputs, mask = inputs
-    elif type(inputs) is list:
+    if type(inputs) is tuple or type(inputs) is list:
         inputs, mask = inputs[0], inputs[1]
     else:
         # Calculate the mask by the max length of capsules.

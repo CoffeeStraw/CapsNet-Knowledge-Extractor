@@ -65,9 +65,7 @@ def CapsuleNet(input_shape, batch_size, n_class, name="CapsNet_MNIST"):
     # Layer 2-4: Three Dense layer for the image reconstruction
     decoder = Sequential(name="decoder")
     decoder.add(Dense(256, activation="relu", input_dim=16 * n_class, name="dense_1"))
-
     decoder.add(Dense(512, activation="relu", name="dense_2"))
-
     decoder.add(
         Dense(tf.math.reduce_prod(input_shape), activation="sigmoid", name="dense_3")
     )
