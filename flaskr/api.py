@@ -59,7 +59,7 @@ def buildNN(image):
 
         # Since we are not interested in every layer's output, we filter them
         def is_layer_processable(layer):
-            keys = ["conv", "caps"]
+            keys = ["conv", "caps", "mask"]
             layer_name = layer.name
             for key in keys:
                 if key in layer_name:
@@ -86,7 +86,8 @@ def buildNN(image):
             if not os.path.exists(layer_img_dir):
                 os.mkdir(layer_img_dir)
 
-            # === Process layer activation based on type ===
+            # === PROCESS LAYER ACTIVATION BASED ON TYPE ===
+
             # Convolutional layer?
             if "conv" in layer_name:
                 # Save features
@@ -116,17 +117,50 @@ def buildNN(image):
                 act = tf.reshape(
                     compute_vectors_length(act), (feature_dim, feature_dim, -1)
                 )
-                # Save as images resized as the input (TODO, for now values are hardcoded)
+                # Save as images with the same size of the inputs
                 act = tf.multiply(act, 255.0)
                 for i in range(act.shape[-1]):
                     capsules_length = act[:, :, i].numpy()
                     pil.fromarray(capsules_length).convert("L").resize(
-                        (28, 28), pil.NEAREST
+                        image.shape, pil.NEAREST
                     ).save(os.path.join(layer_img_dir, f"{i}.jpeg"))
 
             # Class Caps layer?
             elif "caps" in layer_name:
                 pass
+
+            # Mask layer?
+            elif "mask" in layer_name:
+                # Get next layer (suppose decoder)
+                next_layer = layer._outbound_nodes[1].outbound_layer
+
+                # Edit tensor values and feed the activation forward to get reconstruction
+                start = np.argmax(act != 0)
+                n_dims = act.shape[0] // model_params["n_class"]
+                act_numpy = act.numpy()
+
+                for i_dim in range(start, start + n_dims):
+                    for r in np.linspace(-0.25, 0.25, 11):
+                        r = round(r, 2)
+                        # Edit dimension value
+                        act_to_feed = np.copy(act_numpy)
+                        act_to_feed[i_dim] += r
+
+                        # Convert back to tensor and feed-forward
+                        act_to_feed = tf.expand_dims(
+                            tf.convert_to_tensor(act_to_feed), 0
+                        )
+                        reconstructed_image = next_layer(act_to_feed)
+
+                        # Feed-forward and prepare reconstruction
+                        reconstructed_image = tf.squeeze(reconstructed_image)
+                        reconstructed_image = tf.multiply(reconstructed_image, 255.0)
+                        reconstructed_image = reconstructed_image.numpy()
+
+                        # Save as image
+                        pil.fromarray(reconstructed_image).convert("L").save(
+                            os.path.join(layer_img_dir, f"{i_dim-start}-({r}).jpeg")
+                        )
 
     """
     # print(prediction)
