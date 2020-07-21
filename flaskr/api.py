@@ -59,7 +59,7 @@ def buildNN(image):
 
         # Since we are not interested in every layer's output, we filter them
         def is_layer_processable(layer):
-            keys = ["conv", "caps", "mask"]
+            keys = ["conv", "caps", "len", "mask"]
             layer_name = layer.name
             for key in keys:
                 if key in layer_name:
@@ -74,7 +74,7 @@ def buildNN(image):
         # Get layers activations
         activations = activation_model(prep_image)
 
-        for layer, act in zip(processable_layers, activations):
+        for i, (layer, act) in enumerate(zip(processable_layers, activations)):
             # Get layer config
             config = layer.get_config()
             # Extract from batch
@@ -82,7 +82,7 @@ def buildNN(image):
 
             # Prepare directory for the layer
             layer_name = config["name"]
-            layer_img_dir = os.path.join(instance_img_dir, layer_name)
+            layer_img_dir = os.path.join(instance_img_dir, f"{i}_{layer_name}")
             if not os.path.exists(layer_img_dir):
                 os.mkdir(layer_img_dir)
 
@@ -113,6 +113,54 @@ def buildNN(image):
                     (layer.input_shape[1] - config["kernel_size"] + 1)
                     / config["strides"]
                 )
+                # Reshape to get capsules' features
+                act = tf.reshape(
+                    act,
+                    (
+                        feature_dim,
+                        feature_dim,
+                        config["n_capsules"],
+                        config["out_dim_capsule"],
+                    ),
+                )
+                # Rescale activations linearly
+                min_value, max_value = np.min(act), np.max(act)
+                act = (255 / (max_value - min_value)) * (act.numpy() - min_value)
+
+                # Prepare new image to represent capsules
+                margin = 2
+                new_img_width = act.shape[0] * act.shape[3] + margin * (
+                    act.shape[3] + 1
+                )
+                new_img_height = act.shape[1] * act.shape[2] + margin * (
+                    act.shape[2] + 1
+                )
+                new_img = pil.new("L", (new_img_width, new_img_height))
+
+                # Save each feature as image
+                for feature_i in range(act.shape[2]):
+                    for dim_i in range(act.shape[3]):
+                        curr_feature = act[:, :, feature_i, dim_i]
+                        """
+                        pil.fromarray(curr_feature).convert("L").save(
+                            os.path.join(layer_img_dir, f"{feature_i}-{dim_i}.jpeg")
+                        )
+                        """
+                        # TEST
+                        curr_feature = pil.fromarray(curr_feature).convert("L")
+                        new_img.paste(
+                            curr_feature,
+                            (
+                                dim_i * act.shape[0] + margin * (dim_i + 1),
+                                feature_i * act.shape[1] + margin * (feature_i + 1),
+                            ),
+                        )
+
+                new_img.resize(
+                    tuple(tmp * 10 for tmp in new_img.size), pil.NEAREST
+                ).save(os.path.join(layer_img_dir, f"compact.jpeg"))
+
+                """
                 # Compute vectors' length and reshape
                 act = tf.reshape(
                     compute_vectors_length(act), (feature_dim, feature_dim, -1)
@@ -124,6 +172,7 @@ def buildNN(image):
                     pil.fromarray(capsules_length).convert("L").resize(
                         image.shape, pil.NEAREST
                     ).save(os.path.join(layer_img_dir, f"{i}.jpeg"))
+                """
 
             # Class Caps layer?
             elif "caps" in layer_name:
@@ -140,6 +189,7 @@ def buildNN(image):
                 act_numpy = act.numpy()
 
                 for i_dim in range(start, start + n_dims):
+                    # TODO: Could it be interesting to be able to manipulate also these values?
                     for r in np.linspace(-0.25, 0.25, 11):
                         r = round(r, 2)
                         # Edit dimension value

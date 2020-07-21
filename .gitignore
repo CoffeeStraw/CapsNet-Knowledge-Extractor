@@ -140,4 +140,4 @@ cython_debug/
 # Custom
 .vscode/
 tensorflow-*
-data/
+data*/
