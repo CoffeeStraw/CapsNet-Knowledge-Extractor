@@ -1,6 +1,5 @@
 """
-Utilities file, it contains functions not concerning Neural Networks.
-It is usefull to separate logic.
+File containing functions not concerning directly Neural Networks.
 Author: Antonio Strippoli
 """
 import os
@@ -8,35 +7,43 @@ import argparse
 import pickle
 
 
-def load_mnist():
-    """Loads and prepares MNIST dataset.
+def load_dataset(name="MNIST"):
+    """Loads and prepares the wanted datasets (MNIST as an example).
     """
-    from tensorflow.keras.datasets import mnist
-    from tensorflow.keras.utils import to_categorical
+    if name == "MNIST":
+        from tensorflow.keras.datasets import mnist
+        from tensorflow.keras.utils import to_categorical
 
-    # Preprocess MNIST data
-    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+        # Preprocess MNIST data
+        (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
-    x_train = x_train.reshape(-1, 28, 28, 1).astype("float32") / 255.0
-    x_test = x_test.reshape(-1, 28, 28, 1).astype("float32") / 255.0
+        x_train = x_train.reshape(-1, 28, 28, 1).astype("float32") / 255.0
+        x_test = x_test.reshape(-1, 28, 28, 1).astype("float32") / 255.0
 
-    y_train = to_categorical(y_train.astype("float32"))
-    y_test = to_categorical(y_test.astype("float32"))
+        y_train = to_categorical(y_train.astype("float32"))
+        y_test = to_categorical(y_test.astype("float32"))
 
-    return (x_train, y_train), (x_test, y_test)
+        return (x_train, y_train), (x_test, y_test)
+    else:
+        raise ValueError(f"Given dataset name ({name}) is not a valid name.")
 
 
-def parse_args():
+def parse_args(model_name: str):
     """
     Parses arguments from command line and returns them.
     """
     # Getting/setting the hyper-parameters
     parser = argparse.ArgumentParser(description="Capsule Network on MNIST.")
 
+    # Get project directory
+    project_dir = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+
     # General
     parser.add_argument(
         "--save_dir",
-        default="flaskr/data",
+        default=os.path.join(project_dir, "flaskr", "data", model_name),
         help="The directory that will contains every output of the execution. Relative to project directory.",
     )
     parser.add_argument(
@@ -44,22 +51,6 @@ def parse_args():
         default=100,
         type=int,
         help="The number of batches after which weights are saved.",
-    )
-
-    # Testing or training?
-    parser.add_argument(
-        "-t",
-        "--testing",
-        action="store_true",
-        help="Test the trained model on testing dataset",
-    )
-
-    # Initial weights?
-    parser.add_argument(
-        "-w",
-        "--weights",
-        default=None,
-        help="The path of the saved weights. Should be specified when testing",
     )
 
     # Training
@@ -102,11 +93,12 @@ def parse_args():
     args.weights_save_dir = os.path.join(args.save_dir, "weights")
 
     # Creating results directories, if they do not exist
-    project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if not os.path.exists(os.path.dirname(args.save_dir)):
+        os.mkdir(os.path.dirname(args.save_dir))
     if not os.path.exists(args.save_dir):
-        os.mkdir(os.path.join(project_dir, args.save_dir))
+        os.makedirs(args.save_dir)
     if not os.path.exists(args.weights_save_dir):
-        os.mkdir(os.path.join(project_dir, args.weights_save_dir))
+        os.mkdir(args.weights_save_dir)
 
     return args
 

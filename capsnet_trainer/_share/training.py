@@ -1,20 +1,8 @@
-"""
-CapsuleNetwork TF 2.2 Implementation
-Original Work: Xifeng Guo (https://github.com/XifengGuo/CapsNet-Keras)
-Author: Antonio Strippoli
-"""
-# General imports
 from os.path import join as os_path_join
 
 # Import TensorFlow & Keras
 import tensorflow as tf
 from tensorflow.keras import optimizers, callbacks
-
-# Import CapsuleNetwork model for MNIST classification
-from capsnet import CapsuleNet
-
-# Import some utilities
-from utils import load_mnist, parse_args, pickle_dump
 
 
 def train(model, data, args):
@@ -91,33 +79,5 @@ def train(model, data, args):
 
     # Save final weights at the end of the training
     model.save_weights(os_path_join(args.weights_save_dir, "trained.h5"))
+
     return model
-
-
-def test(model, data, args):
-    pass
-
-
-if __name__ == "__main__":
-    # Parse args
-    args = parse_args()
-
-    # Load MNIST dataset
-    (x_train, y_train), (x_test, y_test) = load_mnist()
-
-    # Set model args and save them for later model reinstantiation
-    model_params = {
-        "input_shape": x_train.shape[1:],
-        "batch_size": args.batch_size,
-        "n_class": y_train.shape[1],
-    }
-    pickle_dump(model_params, os_path_join(args.save_dir, "model_params.pkl"))
-
-    # Instantiate Capsule Network Model
-    model, _ = CapsuleNet(**model_params)
-
-    # Show a complete summary
-    model.summary()
-
-    # Train!
-    model = train(model=model, data=((x_train, y_train), (x_test, y_test)), args=args)
