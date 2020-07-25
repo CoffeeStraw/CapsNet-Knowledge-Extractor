@@ -3,41 +3,31 @@ Flask Server's Factory
 Author: Antonio Strippoli
 """
 import os
+import sys
+
 from flask import Flask, render_template
+from flask_json import FlaskJSON
 
-# API import
-from .api import buildNN
+# Create app
+app = Flask(__name__)
+json = FlaskJSON(app)
 
+# Save some directories for later use
+# (TODO: it could be usefull to have a way to provide the capsnet_trainer directory)
+project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+trainer_dir = os.path.join(project_dir, "capsnet_trainer")
+data_dir = os.path.join(project_dir, "flaskr", "data")
 
-def create_app():
-    # Create app
-    app = Flask(__name__)
+# Add _share folder to sys.path
+sys.path.append(os.path.join(trainer_dir, "_share"))
 
-    @app.route("/", methods=["GET"])
-    def index():
-        return render_template("index.html")
+# Import API routes
+from flaskr import api_routes
 
-    @app.route("/api/buildNN", methods=["POST"])
-    def api_buildNN():
-        """
-        API to get architecture of the trained NN, as well as
-        weights, biases and outputs of each layer.
+# Clean old cached images (if any)
+api_routes.api_cleanImages()
 
-        Note that an image has to be passed in the POST request.
-        """
-        # TODO: Get Image file from POST req
-        pass
-
-        # Testing: get image from mnist dataset
-        from tensorflow.keras.datasets import mnist
-
-        _, (x_test, _) = mnist.load_data()
-        index_img = 0  # Arbitrary index
-
-        return buildNN(x_test[index_img])
-
-    # TESTING, to be removed
-    api_buildNN()
-    quit()
-
-    return app
+# Simple route for the index
+@app.route("/", methods=["GET"])
+def index():
+    return render_template("index.html")

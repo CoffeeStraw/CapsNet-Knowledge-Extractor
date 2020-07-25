@@ -1,3 +1,4 @@
 tensorflow==2.2.0
-flask
+Flask
+Flask-JSON
 pillow
