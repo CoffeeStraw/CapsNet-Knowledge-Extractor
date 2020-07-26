@@ -1,16 +1,36 @@
-.nav-link, .jumbotron {
-    padding-bottom: 10px!important;
-    padding-top: 10px!important;
+/* Various fixes to Material Kit */
+
+.title {
+    margin-top: 0px;
+    margin-bottom: 0px;
 }
 
-.jumbotron {
-    margin-bottom: 10px!important;
+.btn-secondary {
+    color: #454545!important;
 }
 
-.nav-link.active {
-    border: 1!important;
-    font-weight: 900!important;
+.noUi-origin {
+    margin-right: 7px;
 }
+
+.noUi-value {
+    color: #454545;
+}
+
+.dropdown-menu .dropdown-item:active, .dropdown-menu .dropdown-item:focus, .dropdown-menu .dropdown-item:hover, .dropdown-menu a.active, .dropdown-menu a:active, .dropdown-menu a:focus, .dropdown-menu a:hover {
+    background-color: #29479b;
+    color: #fff!important;
+}
+
+.dropdown-menu {
+    background-color: white!important;
+}
+
+.form-control, .is-focused .form-control {
+    background-image: linear-gradient(0deg, #29479b 2px, rgba(156, 39, 176, 0) 0), linear-gradient(0deg, #d2d2d2 1px, hsla(0, 0%, 82%, 0) 0);
+}
+
+/* Sticky footer */
 
 .footer {
     position: absolute;
@@ -18,5 +38,4 @@
     width: 100%;
     height: 40px;
     line-height: 40px;
-    background-color: #f5f5f5;
 }
