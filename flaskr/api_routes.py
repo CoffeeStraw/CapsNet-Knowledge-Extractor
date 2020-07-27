@@ -7,6 +7,7 @@ import os
 import sys
 import importlib
 import PIL.Image as pil
+from natsort import natsorted
 
 # Flask imports
 from flask import request
@@ -40,16 +41,22 @@ def api_getModels():
     for name in models_name:
         # Add training steps (if found)
         try:
-            training_steps = os.listdir(os.path.join(paths["data"], name, "weights"))
+            training_steps = natsorted(
+                map(
+                    lambda name: name.replace(".h5", ""),
+                    os.listdir(os.path.join(paths["data"], name, "weights")),
+                )
+            )
         except FileNotFoundError:
             training_steps = []
+        print(training_steps)
         models[name] = {"training_steps": training_steps}
 
         # Add processable layers
         model, _ = load_model(name)
         models[name]["layers"] = get_processable_layers(model.layers)
 
-    return models
+    return {"models": models}
 
 
 @app.route("/api/computeStep", methods=["POST"])

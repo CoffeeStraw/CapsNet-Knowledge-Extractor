@@ -2,3 +2,4 @@ tensorflow==2.2.0
 Flask
 Flask-JSON
 pillow
+natsort
