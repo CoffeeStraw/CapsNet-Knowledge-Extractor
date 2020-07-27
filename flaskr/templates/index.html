@@ -23,8 +23,9 @@
 
 <body>
   <!-- Top navigation bar-->
-  <nav class="navbar fixed-top bg-white">
+  <nav class="navbar bg-white">
     <div class="container-fluid row" style="margin: 0px;">
+
       <!-- Title -->
       <div class="col-xl-2 col-sm-12 text-center">
         <h3 class="title">Capsule Networks</h3>
@@ -33,8 +34,9 @@
 
       <!-- Training Step slider -->
       <div class="col-xl-8 col-sm-12 mx-auto">
-        <div id="sliderRegular" class="slider slider-info" style="margin-bottom: 45px;"></div>
+        <div id="sliderRegular" class="slider slider-primary" style="margin-bottom: 45px;"></div>
       </div>
+
       <!-- Model selector -->
       <div class="col-xl-2 col-sm-12 text-center">
         <select class="selectpicker" data-style="btn-secondary" title="Select a Model" data-header="Select a model"
@@ -44,12 +46,38 @@
           <option>Super very iper mega long</option>
         </select>
       </div>
+
     </div>
   </nav>
 
+  <!-- Network's tabs -->
+  <div class="container-fluid">
+    <ul class="nav justify-content-center nav-fill nav-tabs" id="myTab" role="tablist">
+      <li class="nav-item">
+        <a class="nav-link active" id="home-tab" data-toggle="tab" href="#home" role="tab" aria-controls="home"
+          aria-selected="true">Conv1</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" id="profile-tab" data-toggle="tab" href="#profile" role="tab" aria-controls="profile"
+          aria-selected="false">PrimaryCapsules</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" id="contact-tab" data-toggle="tab" href="#contact" role="tab" aria-controls="contact"
+          aria-selected="false">ClassCapsules</a>
+      </li>
+    </ul>
+    <hr style="margin-top: 1px;">
+    <div class="tab-content" id="myTabContent">
+      <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">Conv1</div>
+      <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">PrimaryCapsules</div>
+      <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab">ClassCapsules</div>
+    </div>
+  </div>
+
+  <!-- Copyright -->
   <footer class="footer footer-default">
-    <div class="container">
-      <nav class="copyright float-left">
+    <div class="container-fluid">
+      <nav class="copyright float-center">
         <b>Università degli Studi di Perugia</b>, Antonio Strippoli - A.A. 2019-2020
       </nav>
     </div>

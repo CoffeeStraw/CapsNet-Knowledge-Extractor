@@ -1,4 +1,4 @@
-/* Various fixes to Material Kit */
+/* Various fixes and color changes to Material Kit */
 
 .title {
     margin-top: 0px;
@@ -17,6 +17,14 @@
     color: #454545;
 }
 
+.slider.slider-primary .noUi-connect {
+    background-color: #29479b;
+}
+
+.slider.slider-primary .noUi-handle {
+    border-color: #29479b;
+}
+
 .dropdown-menu .dropdown-item:active, .dropdown-menu .dropdown-item:focus, .dropdown-menu .dropdown-item:hover, .dropdown-menu a.active, .dropdown-menu a:active, .dropdown-menu a:focus, .dropdown-menu a:hover {
     background-color: #29479b;
     color: #fff!important;
@@ -30,12 +38,23 @@
     background-image: linear-gradient(0deg, #29479b 2px, rgba(156, 39, 176, 0) 0), linear-gradient(0deg, #d2d2d2 1px, hsla(0, 0%, 82%, 0) 0);
 }
 
-/* Sticky footer */
+.nav-tabs .nav-item .nav-link, .nav-tabs .nav-item .nav-link:focus, .nav-tabs .nav-item .nav-link:hover {
+    color: black!important;
+}
 
-.footer {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    height: 40px;
-    line-height: 40px;
+.nav-tabs .nav-item .nav-link.active {
+    background-color: hsla(0, 0%, 100%, .7);
+    transition: background-color .3s .2s;
+}
+
+.nav-link {
+    border: 1!important;
+    font-weight: 400!important;
+    font-size: 1.2rem!important;
+    text-transform: none!important;
+}
+
+.nav-link.active {
+    border: 1!important;
+    font-weight: 900!important;
 }
