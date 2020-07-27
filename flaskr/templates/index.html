@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <title>CapsuleNetwork Interactive Visualization</title>
+  <title>CapsuleNetwork Knowledge Extractor</title>
   <!-- Required meta tags -->
   <meta charset="utf-8">
   <meta content="width=device-width, initial-scale=1.0, name=" viewport" />
@@ -48,26 +48,43 @@
 
   <!-- Network's tabs -->
   <div class="container-fluid">
-    <ul class="nav justify-content-center nav-fill nav-tabs" id="myTab" role="tablist">
-      <li class="nav-item">
-        <a class="nav-link active" id="home-tab" data-toggle="tab" href="#home" role="tab" aria-controls="home"
-          aria-selected="true">Conv1</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" id="profile-tab" data-toggle="tab" href="#profile" role="tab" aria-controls="profile"
-          aria-selected="false">PrimaryCapsules</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" id="contact-tab" data-toggle="tab" href="#contact" role="tab" aria-controls="contact"
-          aria-selected="false">ClassCapsules</a>
-      </li>
-    </ul>
-    <hr style="margin-top: 1px;">
-    <div class="tab-content" id="myTabContent">
-      <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">Conv1</div>
-      <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">PrimaryCapsules</div>
-      <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab">ClassCapsules</div>
+
+    <div class="row align-items-center" style="height: 115px; margin-bottom: 15px;">
+      <!-- Input selection -->
+      <div class="col-xs-auto text-center mx-3">
+
+        <!-- 1st form: image from dataset -->
+        <form id="form-dataset" class="form" method="POST" action="" disabled>
+          <input type="number" id="dataset-i" name="dataset-i" min="0" max="1000" placeholder="Dataset index"
+            style="min-width: 125px;" disabled="disabled">
+          <button type="submit" id="dataset-i-submit" class="btn btn-primary btn-round btn-index-submit" disabled><i
+              class="material-icons">chevron_right</i></button>
+        </form>
+
+        <p class="my-0">—————— OR ——————</p>
+
+        <!-- 2nd form: custom image upload -->
+        <form id="form-custom-img" class="form" method="POST" action="" enctype="multipart/form-data">
+          <label id="custom-image-label" class="btn btn-block btn-primary btn-round mb-0 disabled"
+            style="padding: 6px 10px;">
+            <input type="file" accept="image/*" id="custom-image" name="custom-image" style="display:none;"
+              disabled="disabled">
+            <i class="material-icons">publish</i> Upload image
+          </label>
+        </form>
+      </div>
+
+      <!-- Image visualization -->
+      <div class="col-xs-auto">
+        <img id="input-img" src="{{ url_for('static', filename='img/default.jpg') }}" class="img-raised"
+          style="height: 100px;">
+      </div>
     </div>
+
+    <!-- Network's visualizations-->
+    <ul class="nav justify-content-center nav-fill nav-tabs" id="visualization" role="tablist"></ul>
+    <hr style="margin-top: 1px;">
+    <div class="tab-content" id="visualization-content"></div>
   </div>
 
   <!-- Copyright -->

@@ -58,3 +58,34 @@
     border: 1!important;
     font-weight: 900!important;
 }
+
+.row {
+    margin-left: 0px;
+    margin-right: 0px;
+}
+
+.form {
+    margin-bottom: 0px;
+}
+
+.btn-index-submit {
+    padding: 5px;
+}
+
+.btn-primary {
+    background-color: #29479b!important;
+}
+
+.custom-file-upload {
+    color: black!important;
+    border: 1px solid #8f8f8f;
+    display: inline-block;
+    padding: 3px 3px;
+    margin-bottom: 0px;
+    cursor: pointer;
+}
+
+.img-gallery {
+    width: 3rem;
+    margin: 5px 5px;
+}

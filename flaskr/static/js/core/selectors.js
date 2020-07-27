@@ -11,6 +11,7 @@
 export class ModelSelector {
     constructor(elements) {
         this.selector = $('.selectpicker')
+        this.selected = 'Unpicked'
 
         var options_html = ''
         for (var i in elements) {
@@ -27,29 +28,36 @@ export class ModelSelector {
  * @param {Array.<string>} elements The pips' label.
  */
 export class TrainingStepSelector {
+
     constructor(elements) {
         this.slider = document.getElementsByClassName('slider')[0]
+        this.elements = elements
+        this.selected = elements[0]
 
-        noUiSlider.create(this.slider, {
-            start: 0,
-            connect: [true, false],
-            range: {
-                min: 0,
-                max: elements.length - 1
-            },
-            step: 1,
-            pips: {
-                mode: 'steps',
-                stepped: true,
-                density: elements.length,
-                format: {
-                    to: function (value) {
-                        return elements[Math.round(value)]
-                    },
-                    from: Number
-                }
-            },
-        })
+        this.config = function (elements) {
+            return {
+                start: 0,
+                connect: [true, false],
+                range: {
+                    min: 0,
+                    max: elements.length - 1
+                },
+                step: 1,
+                pips: {
+                    mode: 'steps',
+                    stepped: true,
+                    density: elements.length,
+                    format: {
+                        to: function (value) {
+                            return elements[Math.round(value)]
+                        },
+                        from: Number
+                    }
+                },
+            }
+        }
+
+        noUiSlider.create(this.slider, this.config(elements))
     }
 
     /**
@@ -67,22 +75,7 @@ export class TrainingStepSelector {
      * @param {Array.<string>} elements The new elements for the slider.
      */
     changeElements(elements) {
-        this.slider.noUiSlider.updateOptions({
-            range: {
-                min: 0,
-                max: elements.length - 1
-            },
-            pips: {
-                mode: 'steps',
-                stepped: true,
-                density: elements.length,
-                format: {
-                    to: function (value) {
-                        return elements[Math.round(value)]
-                    },
-                    from: Number
-                }
-            },
-        })
+        this.elements = elements
+        this.slider.noUiSlider.updateOptions(this.config(elements))
     }
 }
