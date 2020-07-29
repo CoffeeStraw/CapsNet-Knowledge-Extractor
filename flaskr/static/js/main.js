@@ -47,7 +47,7 @@ async function main() {
                 var [name, type] = value
                 if (i == 0) {
                     visualization_content_html += `
-                    <div class="tab-pane fade show active" id="${name}" role="tabpanel" aria-labelledby="${name}-tab">Send an image!</div>`
+                    <div class="tab-pane fade text-center show active" id="${name}" role="tabpanel" aria-labelledby="${name}-tab">Send an image!</div>`
 
                     visualization_html += `
                     <li class="nav-item">
@@ -56,7 +56,7 @@ async function main() {
                     </li>`
                 } else {
                     visualization_content_html += `
-                    <div class="tab-pane fade" id="${name}" role="tabpanel" aria-labelledby="${name}-tab">Send an image!</div>`
+                    <div class="tab-pane fade text-center" id="${name}" role="tabpanel" aria-labelledby="${name}-tab">Send an image!</div>`
 
                     visualization_html += `
                     <li class="nav-item">
@@ -83,7 +83,7 @@ async function main() {
         var datasetIndex = parseInt(document.getElementById('dataset-i').value)
 
         // Everything under this comment should go in another file
-        // Request to the API to compute the outputs
+        // Request to the API to compute the outputs (TODO: different datasets support)
         var response = await Promise.resolve(
             $.post({
                 url: "/api/computeStep",
@@ -97,21 +97,37 @@ async function main() {
             })
         )
 
-        // Replace input image with the choosen one
+        // Set input-img with the choosen one
         document.getElementById("input-img").src = response['out_dir'] + "img.jpeg"
 
         // Visualize every image produced
-
         for (var layer_name in response['layers_outs']) {
-            var layer_out_dir = response['out_dir'] + `${layer_name}/`
+            var out_params = response['layers_outs'][layer_name]
+            if (out_params == null)
+                continue
+
+            var img_path = response['out_dir'] + `${layer_name}/` + out_params['outs']
             var visualization_content_html = ''
 
-            response['layers_outs'][layer_name].forEach(function (img_name) {
-                var img_path = layer_out_dir + img_name
-                visualization_content_html += `
-                <img class="img-responsive img-gallery" src="${img_path}">
-                `
-            })
+            // Custom zoom and margin for better visualization
+            var zoom = 100 / out_params['chunk_width']
+            var margin = 5 / zoom
+
+            for (var row = 0; row < out_params['rows']; row++) {
+                for (var col = 0; col < out_params['cols']; col++) {
+                    visualization_content_html += `
+                    <img class="img-responsive img-gallery" src="/static/img/tmp.gif"
+                    style="background: url(${img_path});
+                           background-position: -${col * out_params['chunk_width']}px -${row * out_params['chunk_height']}px;
+                           width: ${out_params['chunk_width']}px;
+                           height: ${out_params['chunk_height']}px;
+                           zoom: ${zoom};
+                           margin: ${margin}px ${margin}px;
+                    ">`
+                }
+                visualization_content_html += "<br/>"
+            }
+            console.log(visualization_content_html)
 
             $(`#${layer_name}`).html(visualization_content_html)
         }

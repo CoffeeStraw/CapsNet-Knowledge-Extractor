@@ -121,19 +121,4 @@ def api_computeStep():
         os.path.join(paths["data"], model_name, "weights", training_step)
     )
 
-    # Save all the outputs for the given training step
-    compute_step(model, model_params, prep_img, req_out_dir)
-
-    # Get all outputs' names
-    layers_outs = {}
-    for layer_name in [tmp for tmp in list(os.walk(req_out_dir))[0][1]]:
-        imgs = []
-        for img_name in natsorted(os.listdir(os.path.join(req_out_dir, layer_name))):
-            imgs.append(img_name)
-        layers_outs[layer_name] = imgs
-
-    # Prepare output directory path for return
-    req_out_dir = req_out_dir.replace("\\", "/")
-    req_out_dir = req_out_dir[req_out_dir.find("/static") :] + "/"
-
-    return {"out_dir": req_out_dir, "layers_outs": layers_outs, "status": 200}
+    return compute_step(model, model_params, prep_img, req_out_dir)

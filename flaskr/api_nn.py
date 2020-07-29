@@ -18,6 +18,7 @@ from tensorflow.keras.models import Model
 
 # Utilities
 from utils import pickle_load
+from capslayers import compute_vectors_length
 
 
 def load_model(model_name):
@@ -74,16 +75,34 @@ def get_processable_layers(layers):
 
 
 def conv_out_process(act, layer_img_dir):
+    # Prepare new image to contain convolutional's features
+    new_img_width = act.shape[0] * act.shape[-1]
+    new_img_height = act.shape[1]
+    new_img = pil.new("L", (new_img_width, new_img_height))
+
     # Save features
     act = tf.multiply(act, 255.0)
     for i in range(act.shape[-1]):
         feature = act[:, :, i].numpy()
-        pil.fromarray(feature).convert("L").save(
-            os.path.join(layer_img_dir, f"{i}.jpeg")
+        feature_image = pil.fromarray(feature).convert("L")
+
+        new_img.paste(
+            feature_image, (act.shape[0] * i, 0),
         )
 
     # Save filters (TODO?)
     pass
+
+    # Save the new image
+    new_img.save(os.path.join(layer_img_dir, f"out.jpeg"))
+
+    return {
+        "rows": 1,
+        "cols": act.shape[-1],
+        "chunk_width": act.shape[0],
+        "chunk_height": act.shape[1],
+        "outs": "out.jpeg",
+    }
 
 
 def pcap_out_process(layer, config, act, layer_img_dir):
@@ -91,60 +110,35 @@ def pcap_out_process(layer, config, act, layer_img_dir):
     feature_dim = int(
         (layer.input_shape[1] - config["kernel_size"] + 1) / config["strides"]
     )
-    # Reshape to get capsules' features
-    act = tf.reshape(
-        act,
-        (feature_dim, feature_dim, config["n_capsules"], config["out_dim_capsule"],),
-    )
-    # Rescale activations linearly
-    min_value, max_value = np.min(act), np.max(act)
-    act = (255 / (max_value - min_value)) * (act.numpy() - min_value)
 
-    # Prepare new image to represent capsules
-    margin = 2
-    new_img_width = act.shape[0] * act.shape[3] + margin * (act.shape[3] + 1)
-    new_img_height = act.shape[1] * act.shape[2] + margin * (act.shape[2] + 1)
+    # Compute vectors' length and reshape
+    act = tf.reshape(compute_vectors_length(act), (feature_dim, feature_dim, -1))
+
+    # Prepare new image to contain capsules' activations
+    new_img_width = feature_dim * act.shape[-1]
+    new_img_height = feature_dim
     new_img = pil.new("L", (new_img_width, new_img_height))
 
-    # Save each feature as image
-    for i_feature in range(act.shape[2]):
-        for i_dim in range(act.shape[3]):
-            curr_feature = act[:, :, i_feature, i_dim]
-            curr_feature = pil.fromarray(curr_feature).convert("L")
-
-            curr_feature.save(os.path.join(layer_img_dir, f"{i_feature}-{i_dim}.jpeg"))
-
-            """
-            # Save as a single image
-            new_img.paste(
-                curr_feature,
-                (
-                    act.shape[0] * i_dim + margin * (i_dim + 1),
-                    act.shape[1] * i_feature + margin * (i_feature + 1),
-                ),
-            )
-            """
-
-    """
-    # Save as a single image
-    new_img.resize(tuple(tmp * 10 for tmp in new_img.size), pil.NEAREST).save(
-        os.path.join(layer_img_dir, f"compact.jpeg")
-    )
-    """
-
-    """ OLD CODE TO SAVE VECTORS' LENGTH, TO BE REMOVED?
-    # Compute vectors' length and reshape
-    act = tf.reshape(
-        compute_vectors_length(act), (feature_dim, feature_dim, -1)
-    )
     # Save as images with the same size of the inputs
     act = tf.multiply(act, 255.0)
     for i in range(act.shape[-1]):
         capsules_length = act[:, :, i].numpy()
-        pil.fromarray(capsules_length).convert("L").resize(
-            image.shape, pil.NEAREST
-        ).save(os.path.join(layer_img_dir, f"{i}.jpeg"))
-    """
+        pcaps_image = pil.fromarray(capsules_length).convert("L")
+
+        new_img.paste(
+            pcaps_image, (feature_dim * i, 0),
+        )
+
+    # Save the new image
+    new_img.save(os.path.join(layer_img_dir, f"out.jpeg"))
+
+    return {
+        "rows": 1,
+        "cols": act.shape[-1],
+        "chunk_width": feature_dim,
+        "chunk_height": feature_dim,
+        "outs": "out.jpeg",
+    }
 
 
 def ccap_out_process():
@@ -161,13 +155,10 @@ def mask_out_process(layer, act, layer_img_dir, model_params):
     n_dims = act.shape[0] // model_params["n_class"]
     n_manip = 11
 
-    # TEST, put all the reconstructions in one single image
-    """
-    margin = 2
-    new_img_width = prep_img.shape[1] * n_manip + margin * (n_manip + 1)
-    new_img_height = prep_img.shape[2] * n_dims + margin * (n_dims + 1)
+    # Prepare new output image
+    new_img_width = model_params["input_shape"][0] * n_manip
+    new_img_height = model_params["input_shape"][1] * n_dims
     new_img = pil.new("L", (new_img_width, new_img_height))
-    """
 
     # Edit tensor values and feed the activation forward to get reconstruction
     for i_dim in range(start, start + n_dims):
@@ -186,29 +177,26 @@ def mask_out_process(layer, act, layer_img_dir, model_params):
             reconstructed_image = tf.multiply(reconstructed_image, 255.0)
             reconstructed_image = reconstructed_image.numpy()
 
-            # Convert to image
-            reconstructed_image = pil.fromarray(reconstructed_image)
-            reconstructed_image = reconstructed_image.convert("L")
-
-            # Paste the reconstruction to the single image that we are building
-            """
+            # Convert to image and paste to the new image
+            reconstructed_image = pil.fromarray(reconstructed_image).convert("L")
             new_img.paste(
                 reconstructed_image,
                 (
-                    prep_img.shape[1] * i_r + margin * (i_r + 1),
-                    prep_img.shape[2] * (i_dim - start)
-                    + margin * (i_dim - start + 1),
+                    model_params["input_shape"][0] * i_r,
+                    model_params["input_shape"][1] * (i_dim - start),
                 ),
             )
-            """
 
-            # Save as image
-            reconstructed_image.save(
-                os.path.join(layer_img_dir, f"{i_dim-start:02}-({i_r:02}).jpeg")
-            )
+    # Save the new image
+    new_img.save(os.path.join(layer_img_dir, f"out.jpeg"))
 
-    # Save as a single img
-    # new_img.save(os.path.join(layer_img_dir, f"compact.jpeg"))
+    return {
+        "rows": n_dims,
+        "cols": n_manip,
+        "chunk_width": model_params["input_shape"][0],
+        "chunk_height": model_params["input_shape"][1],
+        "outs": "out.jpeg",
+    }
 
 
 def compute_step(model, model_params, prep_img, req_out_dir):
@@ -221,6 +209,13 @@ def compute_step(model, model_params, prep_img, req_out_dir):
 
     activation_model = Model(model.input, [pl[0].output for pl in processable_layers])
     activations = activation_model(prep_img)
+
+    # Prepare dictionary to contain outputs
+    out_dir = req_out_dir.replace("\\", "/")
+    out_dir = out_dir[out_dir.find("/static") :] + "/"
+
+    out_info = {"out_dir": out_dir}
+    outs = {}
 
     for (layer, layer_type), act in zip(processable_layers, activations):
         # Get layer config
@@ -236,22 +231,15 @@ def compute_step(model, model_params, prep_img, req_out_dir):
 
         # === PROCESS LAYER ACTIVATION BASED ON TYPE ===
         if layer_type == "CONVOLUTIONAL":
-            conv_out_process(act, layer_img_dir)
+            outs[layer_name] = conv_out_process(act, layer_img_dir)
         elif layer_type == "PRIMARY_CAPS":
-            pcap_out_process(layer, config, act, layer_img_dir)
+            outs[layer_name] = pcap_out_process(layer, config, act, layer_img_dir)
         elif layer_type == "CLASS_CAPS":
-            ccap_out_process()
+            outs[layer_name] = ccap_out_process()
         elif layer_type == "MASK":
-            mask_out_process(layer, act, layer_img_dir, model_params)
+            outs[layer_name] = mask_out_process(layer, act, layer_img_dir, model_params)
         else:
             raise TypeError(f"Layer type '{layer_type}' cannot be computed.")
 
-    """
-    # print(prediction)
-    print(np.argmax(prediction, 1)[0])
-    
-    img_reconstructed = tf.multiply(img_reconstructed, 255.0)
-    img_reconstructed = tf.squeeze(img_reconstructed)
-    img_reconstructed = img_reconstructed.numpy()
-    pil.fromarray(img_reconstructed).show()
-    """
+    out_info["layers_outs"] = outs
+    return out_info
