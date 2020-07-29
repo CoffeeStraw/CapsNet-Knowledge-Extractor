@@ -88,4 +88,5 @@
 .img-gallery {
     width: 3rem;
     margin: 5px 5px;
+    image-rendering: pixelated;
 }
