@@ -97,8 +97,8 @@ async function main() {
             })
         )
 
-        // Set input-img with the choosen one
-        document.getElementById("input-img").src = response['out_dir'] + "img.jpeg"
+        // Set input-img with the choosen one and attach the current time as query string to force no caching
+        document.getElementById("input-img").src = response['out_dir'] + "img.jpeg?" + performance.now()
 
         // Visualize every image produced
         for (var layer_name in response['layers_outs']) {
@@ -106,13 +106,14 @@ async function main() {
             if (out_params == null)
                 continue
 
-            var img_path = response['out_dir'] + `${layer_name}/` + out_params['outs']
-            var visualization_content_html = ''
+            // Get image path and attach the current time as query string to force no caching
+            var img_path = response['out_dir'] + `${layer_name}/` + out_params['outs'] + "?" + performance.now()
 
             // Custom zoom and margin for better visualization
             var zoom = 100 / out_params['chunk_width']
             var margin = 5 / zoom
 
+            var visualization_content_html = ''
             for (var row = 0; row < out_params['rows']; row++) {
                 for (var col = 0; col < out_params['cols']; col++) {
                     visualization_content_html += `
