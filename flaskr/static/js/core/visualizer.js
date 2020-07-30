@@ -14,28 +14,30 @@ export function visualizeComputeStep(response) {
     // Visualize every image produced
     for (var layer_name in response['layers_outs']) {
         var out_params = response['layers_outs'][layer_name]
-        if (out_params == null)
+        if (out_params == null) {
+            $(`#${layer_name}`).html('Nothing to visualize...')
             continue
+        }
 
         // Get image path and attach the current time as query string to force no caching
         var img_path = response['out_dir'] + `${layer_name}/` + out_params['outs'] + "?" + performance.now()
 
         // Custom zoom and margin for better visualization
-        var zoom = 100 / out_params['chunk_width']
-        var margin = 5 / zoom
+        var zoom = 65 / out_params['chunk_width']
+        var margin = 3 / zoom
 
         var visualization_content_html = ''
         for (var row = 0; row < out_params['rows']; row++) {
             for (var col = 0; col < out_params['cols']; col++) {
                 visualization_content_html += `
-            <img class="img-responsive img-gallery" src="/static/img/tmp.gif"
-            style="background: url(${img_path});
-                   background-position: -${col * out_params['chunk_width']}px -${row * out_params['chunk_height']}px;
-                   width: ${out_params['chunk_width']}px;
-                   height: ${out_params['chunk_height']}px;
-                   zoom: ${zoom};
-                   margin: ${margin}px ${margin}px;
-            ">`
+                <img class="img-responsive img-gallery" src="/static/img/tmp.gif"
+                style="background: url(${img_path});
+                    background-position: -${col * out_params['chunk_width']}px -${row * out_params['chunk_height']}px;
+                    width: ${out_params['chunk_width']}px;
+                    height: ${out_params['chunk_height']}px;
+                    zoom: ${zoom};
+                    margin: ${margin}px ${margin}px;
+                ">`
             }
             visualization_content_html += "<br/>"
         }
