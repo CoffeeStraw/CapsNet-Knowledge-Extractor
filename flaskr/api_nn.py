@@ -9,6 +9,12 @@ import sys
 import PIL.Image as pil
 import numpy as np
 
+import matplotlib
+
+# Set non interactive backend for matplolib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
 # Project's imports
 from flaskr import paths
 
@@ -199,6 +205,46 @@ def mask_out_process(layer, act, layer_img_dir, model_params):
     }
 
 
+def model_out_process(predictions, model_out_dir):
+    """
+    Visualize model's predictions in an histogram.
+    """
+    plt.rcdefaults()
+    fig, ax = plt.subplots()
+
+    classes = np.arange(len(predictions))
+
+    ax.barh(classes, predictions, align="center")
+    ax.set_yticks(classes)
+    ax.set_yticklabels(classes)
+    ax.set_xlim(0, 1.0)
+
+    plt.title(
+        f"Prediction: {np.argmax(predictions)}",
+        fontsize=30.0,
+        color="blue",
+        fontweight="bold",
+    )
+    ax.invert_yaxis()
+    ax.spines["right"].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.tick_params(axis="both", colors="blue", labelsize=20.0)
+
+    for i, v in enumerate(predictions):
+        ax.text(
+            v + 0.01,
+            i + 0.06,
+            str(round(v, 4)),
+            color="blue",
+            fontweight="bold",
+            verticalalignment="center",
+            size=15.0,
+        )
+
+    plt.savefig(os.path.join(model_out_dir, "out.png"), transparent=True)
+    return {"outs": "out.png"}
+
+
 def compute_step(model, model_params, prep_img, req_out_dir):
     """
     Computes and saves the outputs of the processable layers in the given model.
@@ -226,8 +272,7 @@ def compute_step(model, model_params, prep_img, req_out_dir):
         # Prepare directory for the layer
         layer_name = config["name"]
         layer_img_dir = os.path.join(req_out_dir, layer_name)
-        if not os.path.exists(layer_img_dir):
-            os.mkdir(layer_img_dir)
+        os.mkdir(layer_img_dir)
 
         # === PROCESS LAYER ACTIVATION BASED ON TYPE ===
         if layer_type == "CONVOLUTIONAL":
@@ -241,5 +286,15 @@ def compute_step(model, model_params, prep_img, req_out_dir):
         else:
             raise TypeError(f"Layer type '{layer_type}' cannot be computed.")
 
+    # Add layers outputs
     out_info["layers_outs"] = outs
+
+    # Process model's output
+    model_out_dir = os.path.join(req_out_dir, "model_out")
+    os.mkdir(model_out_dir)
+
+    predictions = model(prep_img)[0][0].numpy()
+
+    out_info["model_out"] = model_out_process(predictions, model_out_dir)
+
     return out_info

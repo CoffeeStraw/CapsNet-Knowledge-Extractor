@@ -87,4 +87,5 @@
 
 .img-gallery {
     image-rendering: pixelated;
+    border: 0.1px solid lightblue;
 }

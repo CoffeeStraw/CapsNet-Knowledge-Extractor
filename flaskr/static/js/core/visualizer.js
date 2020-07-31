@@ -11,7 +11,10 @@ export function visualizeComputeStep(response) {
     // Set input-img with the choosen one and attach the current time as query string to force no caching
     document.getElementById("input-img").src = response['out_dir'] + "img.jpeg?" + performance.now()
 
-    // Visualize every image produced
+    // Visualize prediction
+    document.getElementById("prediction-img").src = response['out_dir'] + "model_out/" + response['model_out']['outs'] + "?" + performance.now()
+
+    // Visualize every output produced by the layers
     for (var layer_name in response['layers_outs']) {
         var out_params = response['layers_outs'][layer_name]
         if (out_params == null) {
