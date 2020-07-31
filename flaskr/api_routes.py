@@ -54,7 +54,10 @@ def api_getModels():
 
         # Add processable layers
         model, _ = load_model(name)
-        models[name]["layers"] = get_processable_layers(model.layers)
+        if model != None:
+            models[name]["layers"] = get_processable_layers(model.layers)
+        else:
+            models[name]["layers"] = []
 
     return {"models": models}
 
@@ -117,6 +120,9 @@ def api_computeStep():
 
     # Prepare model
     model, model_params = load_model(model_name)
+
+    # HACK, pass an image to build the model and load the weights
+    model(prep_img)
     model.load_weights(
         os.path.join(paths["data"], model_name, "weights", training_step)
     )

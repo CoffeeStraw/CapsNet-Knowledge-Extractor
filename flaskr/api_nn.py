@@ -42,9 +42,8 @@ def load_model(model_name):
             os.path.join(paths["data"], model_name, "model_params.pkl")
         )
     except FileNotFoundError:
-        return None
+        return None, None
 
-    model_params["batch_size"] = 1
     model_params.pop("dataset")
     _, model = CapsuleNet(**model_params)
 

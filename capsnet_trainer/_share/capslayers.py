@@ -17,42 +17,59 @@ class PrimaryCaps(Layer):
     """
 
     def __init__(
-        self, n_capsules, out_dim_capsule, kernel_size, strides, padding, **kwargs
+        self,
+        n_caps,
+        dims_caps,
+        kernel_size,
+        strides,
+        padding,
+        activation=None,
+        **kwargs
     ):
         super(PrimaryCaps, self).__init__(**kwargs)
-        self.n_capsules = n_capsules
-        self.out_dim_capsule = out_dim_capsule
+        self.n_caps = n_caps
+        self.dims_caps = dims_caps
         self.kernel_size = kernel_size
         self.strides = strides
         self.padding = padding
-
-        # Apply Convolution n_capsules times
-        self.conv2d = Conv2D(
-            filters=n_capsules * out_dim_capsule,
-            kernel_size=kernel_size,
-            strides=strides,
-            padding=padding,
-            name="primarycaps_conv2d",
-        )
-
-        # Reshape the convolutional layer output
-        self.reshape = Reshape((-1, out_dim_capsule), name="primarycaps_reshape")
-
-        # Squash the vectors output
-        self.squash = Lambda(_squash, name="primarycaps_squash")
+        self.activation = activation
 
     def get_config(self):
         config = super().get_config().copy()
         config.update(
             {
-                "n_capsules": self.n_capsules,
-                "out_dim_capsule": self.out_dim_capsule,
+                "n_caps": self.n_caps,
+                "dims_caps": self.dims_caps,
                 "kernel_size": self.kernel_size,
                 "strides": self.strides,
                 "padding": self.padding,
+                "activation": self.activation,
             }
         )
         return config
+
+    def build(self, input_shape):
+        # Apply Convolution n_caps times
+        self.conv2d = Conv2D(
+            filters=self.n_caps * self.dims_caps,
+            kernel_size=self.kernel_size,
+            strides=self.strides,
+            padding=self.padding,
+            activation=self.activation,
+            name="primarycaps_conv2d",
+        )
+
+        # Reshape the convolutional layer output
+        feature_dims = int((input_shape[1] - self.kernel_size + 1) / self.strides)
+        self.reshape = Reshape(
+            (feature_dims ** 2 * self.n_caps, self.dims_caps),
+            name="primarycaps_reshape",
+        )
+
+        # Squash the vectors output
+        self.squash = Lambda(squash, name="primarycaps_squash")
+
+        self.built = True
 
     def call(self, inputs):
         x = self.conv2d(inputs)
@@ -64,75 +81,77 @@ class ClassCaps(Layer):
     """A DigitCaps layer (in case of MNIST dataset), used for image classification prediction.
 
     Args:
-        n_capsules: The number of capsules in this layer.
-        out_dim_capsule: The dimension of the output vector of a capsule.
+        n_caps: The number of capsules in this layer.
+        dims_caps: The dimension of the output vector of a capsule.
         r_iter: Number of routing iterations.
     """
 
-    def __init__(self, n_capsules, out_dim_capsule, r_iter=3, **kwargs):
+    def __init__(self, n_caps, dims_caps, r_iter=3, **kwargs):
         super(ClassCaps, self).__init__(**kwargs)
 
-        self.n_capsules = n_capsules
-        self.out_dim_capsule = out_dim_capsule
+        self.n_caps = n_caps
+        self.dims_caps = dims_caps
         self.r_iter = r_iter
 
     def get_config(self):
         config = super().get_config().copy()
         config.update(
-            {
-                "n_capsules": self.n_capsules,
-                "out_dim_capsule": self.out_dim_capsule,
-                "r_iter": self.r_iter,
-            }
+            {"n_caps": self.n_caps, "dims_caps": self.dims_caps, "r_iter": self.r_iter}
         )
         return config
 
     def build(self, input_shape):
         assert (
             len(input_shape) >= 3
-        ), "The input Tensor should have shape=[None, input_n_capsules, input_out_dim_capsule]"
-        self.input_n_capsules = input_shape[1]
-        self.input_out_dim_capsule = input_shape[2]
+        ), "The input Tensor should have shape=[None, input_n_caps, input_dims_caps]"
+        self.input_n_caps = input_shape[1]
+        self.input_dims_caps = input_shape[2]
 
         # Transform matrix, from each input capsule to each output capsule, there's a unique weight as in Dense layer.
-        self.W = self.add_weight(
-            shape=[
-                self.n_capsules,
-                self.input_n_capsules,
-                self.out_dim_capsule,
-                self.input_out_dim_capsule,
-            ],
-            initializer=initializers.get("glorot_uniform"),
-            name="W",
+        self.init_sigma = 0.1
+        self.W_init = tf.random.normal(
+            shape=(
+                1,
+                self.input_n_caps,
+                self.n_caps,
+                self.dims_caps,
+                self.input_dims_caps,
+            ),
+            stddev=self.init_sigma,
         )
+        self.W = tf.Variable(self.W_init, name="W")
+
+        self.built = True
 
     def call(self, inputs):
-        # Prepare input to be multiplied by W
-        inputs_expand = tf.expand_dims(tf.expand_dims(inputs, 1), -1)
-        # Replicate num_capsule dimension
-        inputs_tiled = tf.tile(inputs_expand, [1, self.n_capsules, 1, 1, 1])
+        batch_size = tf.shape(inputs)[0]
 
-        # Compute `inputs * W` by scanning inputs_tiled on dimension 0.
-        inputs_hat = tf.squeeze(
-            tf.map_fn(lambda x: tf.matmul(self.W, x), elems=inputs_tiled)
-        )
+        capsule1_out_tile = tf.expand_dims(tf.expand_dims(inputs, -1), 2)
+        capsule1_out_tiled = tf.tile(capsule1_out_tile, [1, 1, self.n_caps, 1, 1])
+        W_tiled = tf.tile(self.W, [batch_size, 1, 1, 1, 1])
+
+        inputs_hat = tf.matmul(W_tiled, capsule1_out_tiled)
 
         # ROUTING ALGORITHM
-        # The prior for coupling coefficient, initialized as zeros
-        b = tf.zeros(shape=[inputs.shape[0], self.n_capsules, 1, self.input_n_capsules])
+        b = tf.zeros([batch_size, self.input_n_caps, self.n_caps, 1, 1])
 
         for i in range(self.r_iter):
             # Line 4, computes Eq.(3)
-            c = tf.nn.softmax(b, axis=1)
+            c = tf.nn.softmax(b, axis=2)
 
-            # Line 5 and 6
-            outputs = _squash(tf.matmul(c, inputs_hat))  # [None, 10, 1, 16]
+            # Line 5
+            weighted_predictions = tf.multiply(c, inputs_hat)
+            weighted_sum = tf.reduce_sum(weighted_predictions, axis=1, keepdims=True)
 
-            # Line 7, but avoiding calcs on the last iteration
-            if i < self.r_iter - 1:
-                b += tf.matmul(outputs, inputs_hat, transpose_b=True)
+            # Line 6
+            outputs = squash(weighted_sum, axis=-2)
 
-        return tf.squeeze(outputs, axis=2)
+            # Line 7
+            outputs_tiled = tf.tile(outputs, [1, self.input_n_caps, 1, 1, 1])
+            agreement = tf.matmul(inputs_hat, outputs_tiled, transpose_a=True)
+            b = tf.add(b, agreement)
+
+        return tf.squeeze(outputs, axis=[1, -1])
 
 
 def mask(inputs):
@@ -172,7 +191,7 @@ def compute_vectors_length(vecs):
     return tf.sqrt(tf.reduce_sum(tf.square(vecs), -1) + epsilon())
 
 
-def _squash(vectors, axis=-1):
+def squash(vectors, axis=-1):
     """The non-linear activation used in Capsule, computes Eq.(1)
 
     It drives the length of a large vector to near 1 and small vector to 0.

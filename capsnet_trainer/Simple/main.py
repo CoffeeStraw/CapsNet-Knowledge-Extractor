@@ -41,7 +41,7 @@ if __name__ == "__main__":
         "n_class": y_train.shape[1],
     }
     pickle_dump(model_params, os.path.join(args.save_dir, "model_params.pkl"))
-    model_params.pop('dataset')
+    model_params.pop("dataset")
 
     # Instantiate Capsule Network Model
     model, _ = CapsuleNet(**model_params)

@@ -6,7 +6,7 @@ from tensorflow.keras.models import Sequential, Model
 from capslayers import PrimaryCaps, ClassCaps, compute_vectors_length, mask
 
 
-def CapsuleNet(input_shape, batch_size, n_class, name="CapsNet_MNIST"):
+def CapsuleNet(input_shape, n_class, name="CapsNet_MNIST"):
     """Capsule Network model implementation, used for MNIST dataset training.
 
     The structure used for the implementation
@@ -20,7 +20,7 @@ def CapsuleNet(input_shape, batch_size, n_class, name="CapsNet_MNIST"):
         n_class: Number of classes.
     """
     # --- Encoder ---
-    x = Input(shape=input_shape, batch_size=batch_size)
+    x = Input(shape=input_shape, dtype=tf.float32)
 
     # Layer 1: ReLU Convolutional Layer
     conv1 = Conv2D(
@@ -34,17 +34,18 @@ def CapsuleNet(input_shape, batch_size, n_class, name="CapsNet_MNIST"):
 
     # Layer 2: PrimaryCaps Layer
     primary_caps = PrimaryCaps(
-        n_capsules=16,
-        out_dim_capsule=8,
+        n_caps=16,
+        dims_caps=8,
         kernel_size=9,
         strides=2,
         padding="valid",
+        activation="relu",
         name="primary_caps",
     )(conv1)
 
     # Layer 3: DigitCaps Layer: since routing it is computed only
     # between two consecutive capsule layers, it only happens here
-    digit_caps = ClassCaps(n_capsules=n_class, out_dim_capsule=16, name="digit_caps")(
+    digit_caps = ClassCaps(n_caps=n_class, dims_caps=16, name="digit_caps")(
         primary_caps
     )
 

@@ -1,4 +1,5 @@
 from os.path import join as os_path_join
+import numpy as np
 
 # Import TensorFlow & Keras
 import tensorflow as tf
@@ -81,3 +82,15 @@ def train(model, data, args):
     model.save_weights(os_path_join(args.weights_save_dir, "trained.h5"))
 
     return model
+
+
+def test(model, data, args):
+    """
+    Calculate accuracy of the model on the test set.
+    """
+    x_test, y_test = data
+    y_pred, x_recon = model.predict(x_test, batch_size=100)
+    print(
+        "Test acc:",
+        np.sum(np.argmax(y_pred, 1) == np.argmax(y_test, 1)) / y_test.shape[0],
+    )

@@ -16,7 +16,7 @@ sys.path.append(
 from capsnet import CapsuleNet
 
 # Import general training method for Capsules
-from training import train
+from training import train, test
 
 # Import some utilities
 from utils import load_dataset, parse_args, pickle_dump
@@ -35,16 +35,20 @@ if __name__ == "__main__":
 
     # Set model args and save them for later model reinstantiation
     model_params = {
-        "dataset": dataset,
         "input_shape": x_train.shape[1:],
-        "batch_size": args.batch_size,
         "n_class": y_train.shape[1],
+        "dataset": dataset,
     }
     pickle_dump(model_params, os.path.join(args.save_dir, "model_params.pkl"))
-    model_params.pop('dataset')
+    model_params.pop("dataset")
 
     # Instantiate Capsule Network Model
-    model, _ = CapsuleNet(**model_params)
+    model, eval_model = CapsuleNet(**model_params)
+
+    # TEST: Load latest weights, test the model and quit
+    # eval_model.load_weights(os.path.join(args.save_dir, "weights", "trained.h5"))
+    # test(model=eval_model, data=(x_test, y_test), args=args)
+    # quit()
 
     # Show a complete summary
     model.summary()
