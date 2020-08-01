@@ -24,7 +24,7 @@ class PrimaryCaps(Layer):
         strides,
         padding,
         activation=None,
-        **kwargs
+        **kwargs,
     ):
         super(PrimaryCaps, self).__init__(**kwargs)
         self.n_caps = n_caps
@@ -49,6 +49,10 @@ class PrimaryCaps(Layer):
         return config
 
     def build(self, input_shape):
+        assert (
+            len(input_shape) >= 4
+        ), "The input Tensor of a PrimaryCaps should have shape=[None, width, height, channels]"
+
         # Apply Convolution n_caps times
         self.conv2d = Conv2D(
             filters=self.n_caps * self.dims_caps,
@@ -102,8 +106,9 @@ class ClassCaps(Layer):
 
     def build(self, input_shape):
         assert (
-            len(input_shape) >= 3
-        ), "The input Tensor should have shape=[None, input_n_caps, input_dims_caps]"
+            len(input_shape) == 3
+        ), "The input Tensor of a ClassCaps should have shape=[None, input_n_caps, input_dims_caps]"
+
         self.input_n_caps = input_shape[1]
         self.input_dims_caps = input_shape[2]
 
@@ -133,14 +138,14 @@ class ClassCaps(Layer):
         inputs_hat = tf.matmul(W_tiled, capsule1_out_tiled)
 
         # ROUTING ALGORITHM
-        b = tf.zeros([batch_size, self.input_n_caps, self.n_caps, 1, 1])
+        raw_weights = tf.zeros([batch_size, self.input_n_caps, self.n_caps, 1, 1])
 
         for i in range(self.r_iter):
             # Line 4, computes Eq.(3)
-            c = tf.nn.softmax(b, axis=2)
+            routing_weights = tf.nn.softmax(raw_weights, axis=2)
 
             # Line 5
-            weighted_predictions = tf.multiply(c, inputs_hat)
+            weighted_predictions = tf.multiply(routing_weights, inputs_hat)
             weighted_sum = tf.reduce_sum(weighted_predictions, axis=1, keepdims=True)
 
             # Line 6
@@ -149,9 +154,9 @@ class ClassCaps(Layer):
             # Line 7
             outputs_tiled = tf.tile(outputs, [1, self.input_n_caps, 1, 1, 1])
             agreement = tf.matmul(inputs_hat, outputs_tiled, transpose_a=True)
-            b = tf.add(b, agreement)
+            raw_weights = tf.add(raw_weights, agreement)
 
-        return tf.squeeze(outputs, axis=[1, -1])
+        return tf.squeeze(outputs, axis=[1, -1]), routing_weights
 
 
 def mask(inputs):

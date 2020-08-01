@@ -47,7 +47,7 @@ def CapsuleNet(input_shape, n_class, name="CapsNet_MNIST"):
     # between two consecutive capsule layers, it only happens here
     digit_caps = ClassCaps(n_caps=n_class, dims_caps=16, name="digit_caps")(
         primary_caps
-    )
+    )[0]
 
     # Layer 4: A convenience layer to calculate vectors' length
     vec_len = Lambda(compute_vectors_length, name="vec_len")(digit_caps)
