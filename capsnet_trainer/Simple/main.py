@@ -35,10 +35,9 @@ if __name__ == "__main__":
 
     # Set model args and save them for later model reinstantiation
     model_params = {
-        "dataset": dataset,
         "input_shape": x_train.shape[1:],
-        "batch_size": args.batch_size,
         "n_class": y_train.shape[1],
+        "dataset": dataset,
     }
     pickle_dump(model_params, os.path.join(args.save_dir, "model_params.pkl"))
     model_params.pop("dataset")
