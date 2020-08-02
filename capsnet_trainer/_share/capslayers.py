@@ -183,7 +183,7 @@ def mask(inputs):
     return masked
 
 
-def compute_vectors_length(vecs):
+def compute_vectors_length(vecs, axis=-1):
     """
     Compute vectors length. This is used to compute final prediction as probabilities.
 
@@ -193,7 +193,7 @@ def compute_vectors_length(vecs):
     Returns:
         A new tensor with shape (batch_size, n_vectors)
     """
-    return tf.sqrt(tf.reduce_sum(tf.square(vecs), -1) + epsilon())
+    return tf.sqrt(tf.reduce_sum(tf.square(vecs), axis) + epsilon())
 
 
 def squash(vectors, axis=-1):
