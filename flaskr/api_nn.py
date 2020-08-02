@@ -80,6 +80,9 @@ def get_processable_layers(layers):
 
 
 def conv_out_process(act, layer_img_dir):
+    # Extract from batch
+    act = act[0]
+
     # Prepare new image to contain convolutional's features
     new_img_width = act.shape[0] * act.shape[-1]
     new_img_height = act.shape[1]
@@ -110,10 +113,13 @@ def conv_out_process(act, layer_img_dir):
     }
 
 
-def pcap_out_process(layer, config, act, layer_img_dir):
+def pcap_out_process(act, layer, layer_conf, layer_img_dir):
+    # Extract from batch
+    act = act[0]
+
     # Get new features' dimension
     feature_dim = int(
-        (layer.input_shape[1] - config["kernel_size"] + 1) / config["strides"]
+        (layer.input_shape[1] - layer_conf["kernel_size"] + 1) / layer_conf["strides"]
     )
 
     # Compute vectors' length and reshape
@@ -122,13 +128,18 @@ def pcap_out_process(layer, config, act, layer_img_dir):
     # Prepare new image to contain capsules' activations
     new_img_width = feature_dim * act.shape[-1]
     new_img_height = feature_dim
-    new_img = pil.new("L", (new_img_width, new_img_height))
+    new_img = pil.new("RGB", (new_img_width, new_img_height))
 
     # Save as images with the same size of the inputs
-    act = tf.multiply(act, 255.0)
+    act = tf.multiply(act, 255)
     for i in range(act.shape[-1]):
         capsules_length = act[:, :, i].numpy()
-        pcaps_image = pil.fromarray(capsules_length).convert("L")
+        capsules_length = np.interp(
+            capsules_length, (capsules_length.min(), capsules_length.max()), (0.0, 1.0),
+        )
+        pcaps_image = pil.fromarray(
+            np.uint8(matplotlib.cm.gist_heat(capsules_length) * 255)
+        )
 
         new_img.paste(
             pcaps_image, (feature_dim * i, 0),
@@ -146,11 +157,90 @@ def pcap_out_process(layer, config, act, layer_img_dir):
     }
 
 
-def ccap_out_process():
-    pass
+def ccap_out_process(prev_layer_pack, layer_pack, layer_img_dir):
+    # --------------------------
+    # The following is a compact version of routing path visualization. All the credits goes to Aman Bhullar:
+    # https://atrium.lib.uoguelph.ca/xmlui/bitstream/handle/10214/17834/Bhullar_Aman_202003_Msc.pdf?sequence=1&isAllowed=y
+    # --------------------------
+
+    # TODO: Implement the complete routing path visualization.
+    # Right now we assume that the previous layer is always a primary caps, which is not always be the case
+
+    # Unpack variables
+    ((pl, _), prev_act) = prev_layer_pack
+    ((cl, _), curr_act) = layer_pack
+
+    # Get new features' dimension
+    pl_conf = pl.get_config()
+    feature_dim = int(
+        (pl.input_shape[1] - pl_conf["kernel_size"] + 1) / pl_conf["strides"]
+    )
+
+    # HACK: Assume that every input image to the network is squared,
+    # which would produce squared features as well
+    dims = [
+        feature_dim,
+        feature_dim,
+        pl_conf["n_caps"],
+        cl.get_config()["n_caps"],
+    ]
+
+    # Prepare output of previous caps layer
+    tmp_dims = dims[0:3] + [1] * (len(dims) - 3)
+    prev_caps_lengths = tf.reshape(compute_vectors_length(prev_act), tmp_dims)
+    tmp_dims = [1] * (3) + dims[3 : len(dims)]
+    prev_caps_lengths_tiled = tf.tile(prev_caps_lengths, tmp_dims)
+
+    # Prepare routing weights
+    tmp_dims = dims[0:4] + [1] * (len(dims) - 4)
+    routing_weights_reshape = tf.reshape(curr_act[1], tmp_dims)
+    tmp_dims = [1] * (4) + dims[4 : len(dims)]
+    routing_weights_reshape_tiled = tf.tile(routing_weights_reshape, tmp_dims)
+
+    # Prepare output of current caps layer
+    tmp_dims = [1, 1, 1, dims[3]] + [1] * (len(dims) - 4)
+    curr_caps_lengths = tf.reshape(compute_vectors_length(curr_act[0]), tmp_dims)
+    tmp_dims = dims[0:3] + [1] + dims[4 : len(dims)]
+    curr_caps_lengths_tiled = tf.tile(curr_caps_lengths, tmp_dims)
+
+    # Calculate routing path visualization
+    tmp = tf.square(tf.multiply(routing_weights_reshape_tiled, curr_caps_lengths_tiled))
+    all_paths = tf.multiply(prev_caps_lengths_tiled, tmp)
+    normalizing_factor = np.prod(dims[2 : len(dims)])
+    all_paths_average = tf.reduce_sum(all_paths, axis=2) / normalizing_factor
+
+    # Prepare new image to contain capsules' activations
+    new_img = pil.new("RGB", (dims[0] * dims[-1], dims[1]))
+
+    # Save outputs as a single image
+    all_paths_average = all_paths_average.numpy()
+    all_paths_average = np.interp(
+        all_paths_average,
+        (all_paths_average.min(), all_paths_average.max()),
+        (0.0, 1.0),
+    )
+    for i in range(all_paths_average.shape[-1]):
+        rpv = all_paths_average[:, :, i]
+        img = pil.fromarray(np.uint8(matplotlib.cm.viridis(rpv) * 255))
+
+        new_img.paste(img, (i * dims[0], 0))
+
+    # Save the new image
+    new_img.save(os.path.join(layer_img_dir, f"out.jpeg"))
+
+    return {
+        "rows": 1,
+        "cols": dims[-1],
+        "chunk_width": dims[0],
+        "chunk_height": dims[1],
+        "outs": "out.jpeg",
+    }
 
 
-def mask_out_process(layer, act, layer_img_dir, model_params):
+def mask_out_process(act, layer, model_params, layer_img_dir):
+    # Extract from batch
+    act = act[0]
+
     # Get next layer ( suppose decoder (HACK) )
     next_layer = layer._outbound_nodes[1].outbound_layer
 
@@ -241,6 +331,7 @@ def model_out_process(predictions, model_out_dir):
         )
 
     plt.savefig(os.path.join(model_out_dir, "out.png"), transparent=True)
+    plt.close("all")
     return {"outs": "out.png"}
 
 
@@ -262,14 +353,13 @@ def compute_step(model, model_params, prep_img, req_out_dir):
     out_info = {"out_dir": out_dir}
     outs = {}
 
-    for (layer, layer_type), act in zip(processable_layers, activations):
+    layer_pack = list(zip(processable_layers, activations))
+    for i, ((layer, layer_type), act) in enumerate(layer_pack):
         # Get layer config
-        config = layer.get_config()
-        # Extract from batch
-        act = act[0]
+        layer_conf = layer.get_config()
 
         # Prepare directory for the layer
-        layer_name = config["name"]
+        layer_name = layer_conf["name"]
         layer_img_dir = os.path.join(req_out_dir, layer_name)
         os.mkdir(layer_img_dir)
 
@@ -277,11 +367,13 @@ def compute_step(model, model_params, prep_img, req_out_dir):
         if layer_type == "CONVOLUTIONAL":
             outs[layer_name] = conv_out_process(act, layer_img_dir)
         elif layer_type == "PRIMARY_CAPS":
-            outs[layer_name] = pcap_out_process(layer, config, act, layer_img_dir)
+            outs[layer_name] = pcap_out_process(act, layer, layer_conf, layer_img_dir)
         elif layer_type == "CLASS_CAPS":
-            outs[layer_name] = ccap_out_process()
+            curr_lp = layer_pack[i]
+            prev_lp = layer_pack[i - 1]
+            outs[layer_name] = ccap_out_process(prev_lp, curr_lp, layer_img_dir)
         elif layer_type == "MASK":
-            outs[layer_name] = mask_out_process(layer, act, layer_img_dir, model_params)
+            outs[layer_name] = mask_out_process(act, layer, model_params, layer_img_dir)
         else:
             raise TypeError(f"Layer type '{layer_type}' cannot be computed.")
 
