@@ -1,4 +1,4 @@
-from os.path import join as os_path_join
+import os
 import numpy as np
 
 # Import TensorFlow & Keras
@@ -65,7 +65,7 @@ def train(model, data, args):
         def on_batch_end(self, batch, logs={}):
             if batch % self.save_freq == 0:
                 # Save model current state for later visualization
-                save_name = os_path_join(self.save_dir, f"{self.epoch}-{batch}.h5")
+                save_name = os.path.join(self.save_dir, f"{self.epoch}-{batch}.h5")
                 self.model.save_weights(save_name)
 
     # Simple training without data augmentation
@@ -79,7 +79,7 @@ def train(model, data, args):
     )
 
     # Save final weights at the end of the training
-    model.save_weights(os_path_join(args.weights_save_dir, "trained.h5"))
+    model.save_weights(os.path.join(args.weights_save_dir, "trained.h5"))
 
     return model
 

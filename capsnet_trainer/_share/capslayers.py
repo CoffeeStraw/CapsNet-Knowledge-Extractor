@@ -129,32 +129,32 @@ class ClassCaps(Layer):
         self.built = True
 
     def call(self, inputs):
-        batch_size = tf.shape(inputs)[0]
+        # Replicate num_capsule dimension to prepare being multiplied by W
+        input_caps_out_tile = tf.expand_dims(tf.expand_dims(inputs, -1), 2)
+        input_caps_out_tiled = tf.tile(input_caps_out_tile, [1, 1, self.n_caps, 1, 1])
 
-        capsule1_out_tile = tf.expand_dims(tf.expand_dims(inputs, -1), 2)
-        capsule1_out_tiled = tf.tile(capsule1_out_tile, [1, 1, self.n_caps, 1, 1])
-        W_tiled = tf.tile(self.W, [batch_size, 1, 1, 1, 1])
-
-        inputs_hat = tf.matmul(W_tiled, capsule1_out_tiled)
+        # Matmul doesn't care about batch_size (it just uses the same self.W multiple times)
+        inputs_hat = tf.matmul(self.W, input_caps_out_tiled)
 
         # ROUTING ALGORITHM
-        raw_weights = tf.zeros([batch_size, self.input_n_caps, self.n_caps, 1, 1])
+        raw_weights = tf.zeros([1, self.input_n_caps, self.n_caps, 1, 1])
 
         for i in range(self.r_iter):
             # Line 4, computes Eq.(3)
             routing_weights = tf.nn.softmax(raw_weights, axis=2)
 
-            # Line 5
-            weighted_predictions = tf.multiply(routing_weights, inputs_hat)
-            weighted_sum = tf.reduce_sum(weighted_predictions, axis=1, keepdims=True)
-
-            # Line 6
-            outputs = squash(weighted_sum, axis=-2)
+            # Line 5, 6
+            outputs = squash(
+                tf.reduce_sum(
+                    tf.multiply(routing_weights, inputs_hat), axis=1, keepdims=True
+                ),
+                axis=-2,
+            )
 
             # Line 7
-            outputs_tiled = tf.tile(outputs, [1, self.input_n_caps, 1, 1, 1])
-            agreement = tf.matmul(inputs_hat, outputs_tiled, transpose_a=True)
-            raw_weights = tf.add(raw_weights, agreement)
+            if i < self.r_iter - 1:
+                outputs_tiled = tf.tile(outputs, [1, self.input_n_caps, 1, 1, 1])
+                raw_weights += tf.matmul(inputs_hat, outputs_tiled, transpose_a=True)
 
         return tf.squeeze(outputs, axis=[1, -1]), routing_weights
 
