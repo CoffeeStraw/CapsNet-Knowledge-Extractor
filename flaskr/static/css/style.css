@@ -9,6 +9,17 @@
     color: #454545!important;
 }
 
+.noUi-horizontal {
+    height: 6px;
+}
+
+.noUi-horizontal .noUi-handle {
+    width: 18px;
+    height: 18px;
+    top: -6.5px;
+    left: 98%;
+}
+
 .noUi-origin {
     margin-right: 7px;
 }

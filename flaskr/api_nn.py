@@ -170,8 +170,10 @@ def ccap_out_process(prev_layer_pack, layer_pack, layer_img_dir):
     ((pl, _), prev_act) = prev_layer_pack
     ((cl, _), curr_act) = layer_pack
 
-    # Get new features' dimension
     pl_conf = pl.get_config()
+    cl_conf = cl.get_config()
+
+    # Get new features' dimension
     feature_dim = int(
         (pl.input_shape[1] - pl_conf["kernel_size"] + 1) / pl_conf["strides"]
     )
@@ -182,7 +184,7 @@ def ccap_out_process(prev_layer_pack, layer_pack, layer_img_dir):
         feature_dim,
         feature_dim,
         pl_conf["n_caps"],
-        cl.get_config()["n_caps"],
+        cl_conf["n_caps"],
     ]
 
     # Prepare output of previous caps layer
