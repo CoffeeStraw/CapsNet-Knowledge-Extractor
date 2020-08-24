@@ -1,12 +1,18 @@
 /* Various fixes and color changes to Material Kit */
 
+h5 {
+    margin-bottom: 5px;
+    margin-top: 0px;
+}
+
+label {
+    color: black;
+    font-size: .775rem;
+}
+
 .title {
     margin-top: 0px;
     margin-bottom: 0px;
-}
-
-.btn-secondary {
-    color: #454545!important;
 }
 
 .noUi-horizontal {
@@ -79,12 +85,64 @@
     margin-bottom: 0px;
 }
 
-.btn-index-submit {
-    padding: 5px;
+.btn-input-submit {
+    height: 100%!important;
+    padding: 0px;
+    margin: 0px!important;
 }
 
-.btn-primary {
+.btn.btn-primary {
     background-color: #29479b!important;
+    border: 1px solid black!important;
+    box-shadow: none!important;
+}
+
+.btn-secondary {
+    color: #454545!important;
+}
+
+.btn.btn-round {
+    border-radius: 10px;
+}
+
+.input-number {
+    height: 30px!important;
+    border-radius: 10px;
+    border: 1px solid black!important;
+    padding: 1px 5px 1px 10px;
+}
+
+.input-number.testset {
+    width: 150px;
+}
+
+.input-number.rotation {
+    width: 93px;
+}
+
+.input-highlight {
+    box-shadow: 0 0 0 4px hsl(219deg 39% 50% / 75%)!important;
+}
+
+.form-check {
+    margin-bottom: 0px;
+}
+
+.form-check .form-check-input:checked~.form-check-sign .check {
+    background: #29479b;
+}
+
+.form-check .form-check-label span {
+    left: -2px;
+}
+
+.form-check .form-check-label span .radio {
+    left: -1.1px!important;
+}
+
+.upload-img-input {
+    padding: 6px 10px;
+    margin: 0px!important;
 }
 
 .custom-file-upload {
@@ -99,4 +157,45 @@
 .img-gallery {
     image-rendering: pixelated;
     border: 0.1px solid lightblue;
+}
+
+.hr-sect {
+    display: flex;
+    flex-basis: 100%;
+    align-items: center;
+    color: rgba(0, 0, 0);
+    margin: 8px 0px;
+}
+
+.hr-sect::before, .hr-sect::after {
+    content: "";
+    flex-grow: 1;
+    background: rgba(0, 0, 0, 0.5);
+    height: 1px;
+    font-size: 0px;
+    line-height: 0px;
+    margin: 0px 2px;
+}
+
+.nav-tabs .nav-item .nav-link.active {
+    transition: background-color .3s .0s!important;
+}
+
+/* Set a fixed height for inputs' stuff */
+
+.input-row {
+    margin-bottom: 15px;
+}
+
+.input-content-row {
+    height: 100px;
+}
+
+.input-img-preview {
+    height: 100%;
+    image-rendering: pixelated;
+}
+
+.prediction-img {
+    height: 100%;
 }
