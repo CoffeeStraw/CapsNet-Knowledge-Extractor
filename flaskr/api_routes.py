@@ -19,6 +19,9 @@ from flaskr import app, req_counter, paths
 # Neural Networks' functions
 from .api_nn import load_model, get_processable_layers, compute_step
 
+# Utilities
+from .utils import img_transform
+
 
 @app.route("/api/getModels", methods=["GET"])
 @as_json
@@ -67,41 +70,50 @@ def api_getModels():
 def api_computeStep():
     """
     Send an image to the wanted model at a given training step, saving all the outputs.
-    There are 2 different JSON that can be sent to this API:
+    The request's body is expected to have the following key/value pairs:
+    {
+        "model": "YourModelName",
+        "step": "YourTrainingStep",
+        "rotation": '0 or 90 or 180 or 270',
+        "invert_colors": 'true or false'
+    }
+
+    Then, you must also provide one of the following, depending on your objective:
     
-    1) Send an image file in the request:
-        {
-            "model": "Simple",
-            "step": "trained",
-            "image": BinaryImage
-        }
-    2) Specify a supported dataset name and an arbitrary index for that:
-        {
-            "model": "Simple",
-            "step": "trained",
-            "dataset": "MNIST",
-            "index": 0
-        }
+    1) Send a custom image:
+        A file named "image" containing the data for the image.
+    2) An additional key/value pair that specifies an arbitrary index
+       for the test set used for the given model, like: "testset_index": 0
 
     Returns a JSON `{'status': 200}` if everything went fine,
     a JSON containing an error if something went wrong.
     """
     # Unpack data from request
-    data = request.json
+    data = request.form
     model_name = data["model"]
     training_step = data["step"] + ".h5"
+    rotation = int(data["rotation"])
+    invert_colors = True if data["invert_colors"] == "true" else False
+
+    # Prepare model
+    model, model_params = load_model(model_name)
 
     # Preprocess image depending on request
-    if "image" in data:
-        raise JsonError(error_description="Not implemented.")
-    elif "dataset" in data and "index" in data:
-        if data["dataset"] == "MNIST":
+    if "testset_index" in data:
+        if model_params["dataset"] == "MNIST":
             from tensorflow.keras.datasets import mnist
 
-            img = mnist.load_data()[1][0][data["index"]]
+            index = int(data["testset_index"])
+            img = mnist.load_data()[1][0][index]
+
+            # Apply transformations
+            img = img_transform(img, rotation, invert_colors)
+
             prep_img = img.reshape(1, 28, 28, 1).astype("float32") / 255.0
         else:
             raise JsonError(error_description="Dataset not supported.")
+    elif request.files:
+        raise JsonError(error_description="Not implemented.")
     else:
         raise JsonError(
             error_description="Invalid JSON for '/computeStep' API, check the documentation."
@@ -117,9 +129,6 @@ def api_computeStep():
 
     # Save image for future visualization
     pil.fromarray(img).convert("L").save(os.path.join(req_out_dir, "img.jpeg"))
-
-    # Prepare model
-    model, model_params = load_model(model_name)
 
     # HACK, pass an image to build the model and load the weights
     model(prep_img)

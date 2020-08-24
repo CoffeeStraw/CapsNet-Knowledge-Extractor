@@ -44,8 +44,9 @@ def load_model(model_name):
     except FileNotFoundError:
         return None, None
 
-    model_params.pop("dataset")
+    dataset = model_params.pop("dataset")
     _, model = CapsuleNet(**model_params)
+    model_params["dataset"] = dataset
 
     # Clean modules (HACK)
     del sys.modules["capsnet"]
@@ -113,21 +114,28 @@ def conv_out_process(act, layer_img_dir):
     }
 
 
-def pcap_out_process(act, layer, layer_conf, layer_img_dir):
+def pcap_out_process(act, prep_img, layer, layer_conf, layer_img_dir):
     # Extract from batch
     act = act[0]
+    prep_img = prep_img[0]
+
+    # Move preprocessed image to RGB domain and convert to image
+    prep_img = np.repeat(prep_img[:, :] * 255.0, 3, axis=2)
+    # Add alpha channel
+    prep_img = np.dstack((prep_img, np.full(prep_img.shape[:-1], 255.0)))
+    prep_img = pil.fromarray(np.uint8(prep_img))
 
     # Get new features' dimension
     feature_dim = int(
         (layer.input_shape[1] - layer_conf["kernel_size"] + 1) / layer_conf["strides"]
     )
-
     # Compute vectors' length and reshape
     act = tf.reshape(compute_vectors_length(act), (feature_dim, feature_dim, -1))
 
     # Prepare new image to contain capsules' activations
-    new_img_width = feature_dim * act.shape[-1]
-    new_img_height = feature_dim
+    chunk_width, chunk_height = prep_img.size
+    new_img_width = chunk_width * act.shape[-1]
+    new_img_height = chunk_height
     new_img = pil.new("RGB", (new_img_width, new_img_height))
 
     # Save as images with the same size of the inputs
@@ -137,12 +145,15 @@ def pcap_out_process(act, layer, layer_conf, layer_img_dir):
         capsules_length = np.interp(
             capsules_length, (capsules_length.min(), capsules_length.max()), (0.0, 1.0),
         )
-        pcaps_image = pil.fromarray(
-            np.uint8(matplotlib.cm.gist_heat(capsules_length) * 255)
-        )
+        heatmap = pil.fromarray(np.uint8(matplotlib.cm.jet(capsules_length) * 255))
+
+        # If we stop here, we can get a visualized matrix showing capsules activations,
+        # but we go further, rescaling and superimposing the heatmap to the original image
+        heatmap = heatmap.resize((chunk_width, chunk_height))
+        pcaps_img = pil.blend(prep_img, heatmap, alpha=0.8)
 
         new_img.paste(
-            pcaps_image, (feature_dim * i, 0),
+            pcaps_img, (chunk_width * i, 0),
         )
 
     # Save the new image
@@ -151,10 +162,34 @@ def pcap_out_process(act, layer, layer_conf, layer_img_dir):
     return {
         "rows": 1,
         "cols": act.shape[-1],
-        "chunk_width": feature_dim,
-        "chunk_height": feature_dim,
+        "chunk_width": chunk_width,
+        "chunk_height": chunk_height,
         "outs": "out.jpeg",
     }
+
+
+def ccap_out_process_new(prev_layer_pack, layer_pack, layer_img_dir):
+    ((pl, _), prev_act) = prev_layer_pack
+    ((cl, _), curr_act) = layer_pack
+    classes, probs = curr_act
+
+    pl_conf = pl.get_config()
+    feature_dim = int(
+        (pl.input_shape[1] - pl_conf["kernel_size"] + 1) / pl_conf["strides"]
+    )
+
+    # Compute length of digit caps
+    classes = tf.squeeze(compute_vectors_length(classes))
+    probs = tf.squeeze(probs)
+
+    print(probs.shape)
+    out = tf.reduce_sum(probs, axis=-1)
+    out = tf.reshape(out, (-1, feature_dim, feature_dim))
+    out = tf.reduce_sum(out, 0)
+
+    print(out)
+    plt.matshow(out)
+    plt.show()
 
 
 def ccap_out_process(prev_layer_pack, layer_pack, layer_img_dir):
@@ -164,7 +199,7 @@ def ccap_out_process(prev_layer_pack, layer_pack, layer_img_dir):
     # --------------------------
 
     # TODO: Implement the complete routing path visualization.
-    # Right now we assume that the previous layer is always a primary caps, which is not always be the case
+    # Also, atm we assume that the previous layer is always a primary caps, which is not always be the case
 
     # Unpack variables
     ((pl, _), prev_act) = prev_layer_pack
@@ -206,10 +241,15 @@ def ccap_out_process(prev_layer_pack, layer_pack, layer_img_dir):
     curr_caps_lengths_tiled = tf.tile(curr_caps_lengths, tmp_dims)
 
     # Calculate routing path visualization
+    """
     tmp = tf.square(tf.multiply(routing_weights_reshape_tiled, curr_caps_lengths_tiled))
     all_paths = tf.multiply(prev_caps_lengths_tiled, tmp)
     normalizing_factor = np.prod(dims[2 : len(dims)])
     all_paths_average = tf.reduce_sum(all_paths, axis=2) / normalizing_factor
+    """
+    tmp = tf.multiply(routing_weights_reshape_tiled, curr_caps_lengths_tiled)
+    all_paths = tf.multiply(prev_caps_lengths_tiled, tmp)
+    all_paths_average = tf.reduce_sum(all_paths, axis=2)
 
     # Prepare new image to contain capsules' activations
     new_img = pil.new("RGB", (dims[0] * dims[-1], dims[1]))
@@ -369,7 +409,9 @@ def compute_step(model, model_params, prep_img, req_out_dir):
         if layer_type == "CONVOLUTIONAL":
             outs[layer_name] = conv_out_process(act, layer_img_dir)
         elif layer_type == "PRIMARY_CAPS":
-            outs[layer_name] = pcap_out_process(act, layer, layer_conf, layer_img_dir)
+            outs[layer_name] = pcap_out_process(
+                act, prep_img, layer, layer_conf, layer_img_dir
+            )
         elif layer_type == "CLASS_CAPS":
             curr_lp = layer_pack[i]
             prev_lp = layer_pack[i - 1]
@@ -386,7 +428,11 @@ def compute_step(model, model_params, prep_img, req_out_dir):
     model_out_dir = os.path.join(req_out_dir, "model_out")
     os.mkdir(model_out_dir)
 
-    predictions = model(prep_img)[0][0].numpy()
+    model_outs = model(prep_img)
+    if type(model_outs) == list:
+        predictions = model_outs[0][0].numpy()
+    else:
+        predictions = model_outs[0].numpy()
 
     out_info["model_out"] = model_out_process(predictions, model_out_dir)
 
