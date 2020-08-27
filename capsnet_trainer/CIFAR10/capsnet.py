@@ -3,20 +3,17 @@ import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, Lambda, Dense, Reshape
 from tensorflow.keras.models import Sequential, Model
 
-from capslayers import PrimaryCaps, ClassCaps, compute_vectors_length, mask
+from capslayers import PrimaryCaps, DenseCaps, compute_vectors_length, mask
 
 
-def CapsuleNet(input_shape, n_class, name="CapsNet_MNIST"):
+def CapsuleNet(input_shape, n_class, name="CapsuleNetwork"):
     """Capsule Network model implementation, used for MNIST dataset training.
 
-    The structure used for the implementation
-    are taken from the [official paper](https://arxiv.org/abs/1710.09829).
-
-    The values are changed in order to simplify the model.
+    The model has been adapted from
+    the [official paper](https://arxiv.org/abs/1710.09829).
 
     Arguments:
         input_shape: 3-Dimensional data shape (width, height, channels).
-        batch_size: Size of the batches of the inputs.
         n_class: Number of classes.
     """
     # --- Encoder ---
@@ -36,8 +33,8 @@ def CapsuleNet(input_shape, n_class, name="CapsNet_MNIST"):
     primary_caps = PrimaryCaps(
         n_caps=32,
         dims_caps=8,
-        kernel_size=3,
-        strides=1,
+        kernel_size=9,
+        strides=2,
         padding="valid",
         activation="relu",
         name="primary_caps",
@@ -45,7 +42,7 @@ def CapsuleNet(input_shape, n_class, name="CapsNet_MNIST"):
 
     # Layer 3: DigitCaps Layer: since routing it is computed only
     # between two consecutive capsule layers, it only happens here
-    digit_caps = ClassCaps(n_caps=n_class, dims_caps=16, r_iter=9, name="digit_caps")(
+    digit_caps = DenseCaps(n_caps=n_class, dims_caps=16, name="digit_caps")(
         primary_caps
     )[0]
 
@@ -75,7 +72,9 @@ def CapsuleNet(input_shape, n_class, name="CapsNet_MNIST"):
     decoder.add(Reshape(target_shape=input_shape, name="img_reconstructed"))
 
     # Models for training and evaluation (prediction)
-    train_model = Model([x, y], [vec_len, decoder(masked_by_y)])
-    eval_model = Model(x, [vec_len, decoder(masked)])
+    train_model = Model(
+        inputs=[x, y], outputs=[vec_len, decoder(masked_by_y)], name=f"{name}_training"
+    )
+    eval_model = Model(inputs=x, outputs=[vec_len, decoder(masked)], name=name)
 
     return train_model, eval_model
