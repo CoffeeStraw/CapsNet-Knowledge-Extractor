@@ -6,6 +6,7 @@ Author: Antonio Strippoli
 import os
 import sys
 import importlib
+import numpy as np
 import PIL.Image as pil
 from natsort import natsorted
 
@@ -100,18 +101,33 @@ def api_computeStep():
 
     # Preprocess image depending on request
     if "testset_index" in data:
+        index = int(data["testset_index"])
+
         if model_params["dataset"] == "MNIST":
             from tensorflow.keras.datasets import mnist
 
-            index = int(data["testset_index"])
             img = mnist.load_data()[1][0][index]
+        elif model_params["dataset"] == "Fashion_MNIST":
+            from tensorflow.keras.datasets import fashion_mnist
 
-            # Apply transformations
-            img = img_transform(img, rotation, invert_colors)
+            img = fashion_mnist.load_data()[1][0][index]
+        elif model_params["dataset"] == "CIFAR10":
+            from tensorflow.keras.datasets import cifar10
 
-            prep_img = img.reshape(1, 28, 28, 1).astype("float32") / 255.0
+            img = cifar10.load_data()[1][0][index]
         else:
             raise JsonError(error_description="Dataset not supported.")
+
+        # Preprocess the image
+        img = img_transform(img, rotation, invert_colors)
+        img_mode = "RGB" if len(img.shape) == 3 else "L"
+
+        prep_img = img
+        if len(img.shape) == 2:
+            prep_img = np.expand_dims(prep_img, -1)
+
+        prep_img = np.expand_dims(prep_img, 0)
+        prep_img = prep_img.astype("float32") / 255.0
     elif request.files:
         raise JsonError(error_description="Not implemented.")
     else:
@@ -128,12 +144,12 @@ def api_computeStep():
     os.mkdir(req_out_dir)
 
     # Save image for future visualization
-    pil.fromarray(img).convert("L").save(os.path.join(req_out_dir, "img.jpeg"))
+    pil.fromarray(img, mode=img_mode).save(os.path.join(req_out_dir, "img.jpeg"))
 
     # HACK, pass an image to build the model and load the weights
     model(prep_img)
     model.load_weights(
-        os.path.join(paths["data"], model_name, "weights", training_step)
+        os.path.join(paths["trainer"], model_name, "outs", "weights", training_step)
     )
 
-    return compute_step(model, model_params, prep_img, req_out_dir)
+    return compute_step(model, model_params, prep_img, img_mode, req_out_dir)

@@ -80,7 +80,7 @@ def get_processable_layers(layers):
     return processable_layers
 
 
-def conv_out_process(act, layer_img_dir):
+def conv_out_process(act, img_mode, layer_img_dir):
     # Extract from batch
     act = act[0]
 
@@ -92,8 +92,8 @@ def conv_out_process(act, layer_img_dir):
     # Save features
     act = tf.multiply(act, 255.0)
     for i in range(act.shape[-1]):
-        feature = act[:, :, i].numpy()
-        feature_image = pil.fromarray(feature).convert("L")
+        feature = act[:, :, i].numpy().astype("int8")
+        feature_image = pil.fromarray(feature)
 
         new_img.paste(
             feature_image, (act.shape[0] * i, 0),
@@ -114,15 +114,18 @@ def conv_out_process(act, layer_img_dir):
     }
 
 
-def pcap_out_process(act, prep_img, layer, layer_conf, layer_img_dir):
+def pcap_out_process(act, prep_img, img_mode, layer, layer_conf, layer_img_dir):
     # Extract from batch
     act = act[0]
     prep_img = prep_img[0]
 
-    # Move preprocessed image to RGB domain and convert to image
-    prep_img = np.repeat(prep_img[:, :] * 255.0, 3, axis=2)
-    # Add alpha channel
-    prep_img = np.dstack((prep_img, np.full(prep_img.shape[:-1], 255.0)))
+    # Move preprocessed image to RGB domain (if not)
+    if img_mode != "RGB":
+        prep_img = np.repeat(prep_img[:, :] * 255.0, 3, axis=2)
+    else:
+        prep_img *= 255.0
+    # Add alpha channel and convert to image
+    prep_img = np.dstack((prep_img, np.full(prep_img.shape[:-1], 255.0))).astype("int8")
     prep_img = pil.fromarray(np.uint8(prep_img))
 
     # Get new features' dimension
@@ -150,7 +153,7 @@ def pcap_out_process(act, prep_img, layer, layer_conf, layer_img_dir):
         # If we stop here, we can get a visualized matrix showing capsules activations,
         # but we go further, rescaling and superimposing the heatmap to the original image
         heatmap = heatmap.resize((chunk_width, chunk_height))
-        pcaps_img = pil.blend(prep_img, heatmap, alpha=0.8)
+        pcaps_img = pil.blend(prep_img, heatmap, alpha=0.7)
 
         new_img.paste(
             pcaps_img, (chunk_width * i, 0),
@@ -192,7 +195,7 @@ def ccap_out_process_new(prev_layer_pack, layer_pack, layer_img_dir):
     plt.show()
 
 
-def ccap_out_process(prev_layer_pack, layer_pack, layer_img_dir):
+def ccap_out_process(prev_layer_pack, layer_pack, prep_img, img_mode, layer_img_dir):
     # --------------------------
     # The following is a compact version of routing path visualization. All the credits goes to Aman Bhullar:
     # https://atrium.lib.uoguelph.ca/xmlui/bitstream/handle/10214/17834/Bhullar_Aman_202003_Msc.pdf?sequence=1&isAllowed=y
@@ -241,12 +244,6 @@ def ccap_out_process(prev_layer_pack, layer_pack, layer_img_dir):
     curr_caps_lengths_tiled = tf.tile(curr_caps_lengths, tmp_dims)
 
     # Calculate routing path visualization
-    """
-    tmp = tf.square(tf.multiply(routing_weights_reshape_tiled, curr_caps_lengths_tiled))
-    all_paths = tf.multiply(prev_caps_lengths_tiled, tmp)
-    normalizing_factor = np.prod(dims[2 : len(dims)])
-    all_paths_average = tf.reduce_sum(all_paths, axis=2) / normalizing_factor
-    """
     tmp = tf.multiply(routing_weights_reshape_tiled, curr_caps_lengths_tiled)
     all_paths = tf.multiply(prev_caps_lengths_tiled, tmp)
     all_paths_average = tf.reduce_sum(all_paths, axis=2)
@@ -279,7 +276,7 @@ def ccap_out_process(prev_layer_pack, layer_pack, layer_img_dir):
     }
 
 
-def mask_out_process(act, layer, model_params, layer_img_dir):
+def mask_out_process(act, img_mode, layer, model_params, layer_img_dir):
     # Extract from batch
     act = act[0]
 
@@ -295,7 +292,7 @@ def mask_out_process(act, layer, model_params, layer_img_dir):
     # Prepare new output image
     new_img_width = model_params["input_shape"][0] * n_manip
     new_img_height = model_params["input_shape"][1] * n_dims
-    new_img = pil.new("L", (new_img_width, new_img_height))
+    new_img = pil.new(img_mode, (new_img_width, new_img_height))
 
     # Edit tensor values and feed the activation forward to get reconstruction
     for i_dim in range(start, start + n_dims):
@@ -312,10 +309,10 @@ def mask_out_process(act, layer, model_params, layer_img_dir):
             # Pre-process reconstruction
             reconstructed_image = tf.squeeze(reconstructed_image)
             reconstructed_image = tf.multiply(reconstructed_image, 255.0)
-            reconstructed_image = reconstructed_image.numpy()
+            reconstructed_image = reconstructed_image.numpy().astype("int8")
 
             # Convert to image and paste to the new image
-            reconstructed_image = pil.fromarray(reconstructed_image).convert("L")
+            reconstructed_image = pil.fromarray(reconstructed_image, mode=img_mode)
             new_img.paste(
                 reconstructed_image,
                 (
@@ -377,7 +374,7 @@ def model_out_process(predictions, model_out_dir):
     return {"outs": "out.png"}
 
 
-def compute_step(model, model_params, prep_img, req_out_dir):
+def compute_step(model, model_params, prep_img, img_mode, req_out_dir):
     """
     Computes and saves the outputs of the processable layers in the given model.
     """
@@ -407,17 +404,21 @@ def compute_step(model, model_params, prep_img, req_out_dir):
 
         # === PROCESS LAYER ACTIVATION BASED ON TYPE ===
         if layer_type == "CONVOLUTIONAL":
-            outs[layer_name] = conv_out_process(act, layer_img_dir)
+            outs[layer_name] = conv_out_process(act, img_mode, layer_img_dir)
         elif layer_type == "PRIMARY_CAPS":
             outs[layer_name] = pcap_out_process(
-                act, prep_img, layer, layer_conf, layer_img_dir
+                act, prep_img, img_mode, layer, layer_conf, layer_img_dir
             )
         elif layer_type == "CLASS_CAPS":
             curr_lp = layer_pack[i]
             prev_lp = layer_pack[i - 1]
-            outs[layer_name] = ccap_out_process(prev_lp, curr_lp, layer_img_dir)
+            outs[layer_name] = ccap_out_process(
+                prev_lp, curr_lp, prep_img, img_mode, layer_img_dir
+            )
         elif layer_type == "MASK":
-            outs[layer_name] = mask_out_process(act, layer, model_params, layer_img_dir)
+            outs[layer_name] = mask_out_process(
+                act, img_mode, layer, model_params, layer_img_dir
+            )
         else:
             raise TypeError(f"Layer type '{layer_type}' cannot be computed.")
 
