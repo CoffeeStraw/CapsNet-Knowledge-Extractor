@@ -46,8 +46,8 @@ def api_getModels():
         try:
             training_steps = natsorted(
                 map(
-                    lambda name: name.replace(".h5", ""),
-                    os.listdir(os.path.join(paths["data"], name, "weights")),
+                    lambda step_name: step_name.replace(".h5", ""),
+                    os.listdir(os.path.join(paths["trainer"], name, "outs", "weights")),
                 )
             )
         except FileNotFoundError:

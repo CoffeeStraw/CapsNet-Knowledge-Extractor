@@ -39,7 +39,7 @@ def load_model(model_name):
     # Load model
     try:
         model_params = pickle_load(
-            os.path.join(paths["data"], model_name, "model_params.pkl")
+            os.path.join(paths["trainer"], model_name, "outs", "model_params.pkl")
         )
     except FileNotFoundError:
         return None, None

@@ -20,7 +20,6 @@ req_counter = Value("i", 0)
 project_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 paths = {
     "trainer": os.path.join(project_path, "capsnet_trainer"),
-    "data": os.path.join(project_path, "flaskr", "data"),
     "out": os.path.join(project_path, "flaskr", "static", "img", "outs"),
 }
 
@@ -29,15 +28,11 @@ if not os.path.exists(paths["trainer"]):
     raise NotADirectoryError(
         f"The trainer directory was not found ({paths['trainer']})."
     )
-if not os.path.exists(paths["data"]):
-    raise NotADirectoryError(
-        f"The data directory was not found, so there is nothing to visualize ({paths['data']})."
-    )
 
 # Clean up old outputs (if any)
 if os.path.exists(paths["out"]):
     shutil.rmtree(paths["out"])
-os.makedirs(paths["out"])
+os.mkdir(paths["out"])
 
 # Add _share folder to sys.path
 sys.path.append(os.path.join(paths["trainer"], "_share"))
