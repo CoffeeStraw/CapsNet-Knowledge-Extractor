@@ -4,7 +4,7 @@ Author: Antonio Strippoli
 """
 import pickle
 from tensorflow.keras.utils import to_categorical
-from numpy import expand_dims
+import numpy as np
 
 
 def load_dataset(name="MNIST"):
@@ -33,8 +33,8 @@ def load_dataset(name="MNIST"):
 
     # Preprocess data
     if len(x_train.shape) == 3:
-        x_train = expand_dims(x_train, -1)
-        x_test = expand_dims(x_test, -1)
+        x_train = np.expand_dims(x_train, -1)
+        x_test = np.expand_dims(x_test, -1)
 
     x_train = x_train.astype("float32") / 255.0
     x_test = x_test.astype("float32") / 255.0
