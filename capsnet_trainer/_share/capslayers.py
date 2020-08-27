@@ -13,7 +13,15 @@ from tensorflow.keras import initializers
 
 class PrimaryCaps(Layer):
     """
-    A PrimaryCaps layer. More info To Be Added.
+    A PrimaryCaps layer. It allows to move to capsule's domain, encapsulating scalars in vectors.
+
+    Args:
+        n_caps: The number of capsules in this layer.
+        dims_caps: The dimension of the output vector of a capsule.
+        kernel_size: Height and width of the 2D convolution window.
+        strides: Strides of the convolution along the height and width.
+        padding: Type of padding used in the convolution.
+        activation: Activation function to use.
     """
 
     def __init__(
@@ -81,21 +89,33 @@ class PrimaryCaps(Layer):
         return self.squash(x)
 
 
-class ClassCaps(Layer):
-    """A DigitCaps layer (in case of MNIST dataset), used for image classification prediction.
+class DenseCaps(Layer):
+    """A DenseCaps layer, where the dynamic routing algorithm is executed.
 
     Args:
         n_caps: The number of capsules in this layer.
         dims_caps: The dimension of the output vector of a capsule.
         r_iter: Number of routing iterations.
+        kernel_initializer: Initializer that define the way to set the initial random weights.
+        shared_weights: number of input capsules that must have the same weight.
     """
 
-    def __init__(self, n_caps, dims_caps, r_iter=3, **kwargs):
-        super(ClassCaps, self).__init__(**kwargs)
+    def __init__(
+        self,
+        n_caps,
+        dims_caps,
+        r_iter=3,
+        kernel_initializer=initializers.RandomNormal(stddev=0.1),
+        shared_weights=1,
+        **kwargs,
+    ):
+        super(DenseCaps, self).__init__(**kwargs)
 
         self.n_caps = n_caps
         self.dims_caps = dims_caps
         self.r_iter = r_iter
+        self.kernel_initializer = kernel_initializer
+        self.shared_weights = shared_weights
 
     def get_config(self):
         config = super().get_config().copy()
@@ -107,54 +127,51 @@ class ClassCaps(Layer):
     def build(self, input_shape):
         assert (
             len(input_shape) == 3
-        ), "The input Tensor of a ClassCaps should have shape=[None, input_n_caps, input_dims_caps]"
+        ), "The input Tensor of a DenseCaps should have shape=[None, input_n_caps, input_dims_caps]"
 
         self.input_n_caps = input_shape[1]
         self.input_dims_caps = input_shape[2]
 
-        # Transform matrix, from each input capsule to each output capsule, there's a unique weight as in Dense layer.
-        self.init_sigma = 0.1
-        self.W_init = tf.random.normal(
+        self.W = self.add_weight(
+            name="W",
             shape=(
                 1,
-                self.input_n_caps,
+                self.input_n_caps // self.shared_weights,
                 self.n_caps,
                 self.dims_caps,
                 self.input_dims_caps,
             ),
-            stddev=self.init_sigma,
+            initializer=self.kernel_initializer,
         )
-        self.W = tf.Variable(self.W_init, name="W")
 
         self.built = True
 
     def call(self, inputs):
-        # Replicate num_capsule dimension to prepare being multiplied by W
-        input_caps_out_tile = tf.expand_dims(tf.expand_dims(inputs, -1), 2)
-        input_caps_out_tiled = tf.tile(input_caps_out_tile, [1, 1, self.n_caps, 1, 1])
+        # Calculate predictions
+        # Note: Matmul doesn't care about batch_size (it just uses the same self.W multiple times)
+        inputs = tf.expand_dims(tf.expand_dims(inputs, -1), 2)
+        W_tiled = tf.tile(self.W, [1, self.shared_weights, 1, 1, 1])
+        predictions = tf.matmul(W_tiled, inputs)
 
-        # Matmul doesn't care about batch_size (it just uses the same self.W multiple times)
-        inputs_hat = tf.matmul(self.W, input_caps_out_tiled)
-
-        # ROUTING ALGORITHM
+        # === DYNAMIC ROUTING ===
         raw_weights = tf.zeros([1, self.input_n_caps, self.n_caps, 1, 1])
 
         for i in range(self.r_iter):
             # Line 4, computes Eq.(3)
             routing_weights = tf.nn.softmax(raw_weights, axis=2)
 
-            # Line 5, 6
-            outputs = squash(
-                tf.reduce_sum(
-                    tf.multiply(routing_weights, inputs_hat), axis=1, keepdims=True
-                ),
-                axis=-2,
+            # Line 5
+            outputs = tf.reduce_sum(
+                routing_weights * predictions, axis=1, keepdims=True
             )
+
+            # Line 6
+            outputs = squash(outputs, axis=-2)
 
             # Line 7
             if i < self.r_iter - 1:
                 outputs_tiled = tf.tile(outputs, [1, self.input_n_caps, 1, 1, 1])
-                raw_weights += tf.matmul(inputs_hat, outputs_tiled, transpose_a=True)
+                raw_weights += tf.matmul(predictions, outputs_tiled, transpose_a=True)
 
         return tf.squeeze(outputs, axis=[1, -1]), routing_weights
 
