@@ -112,7 +112,7 @@ async function main() {
                 visualizeComputeStep(response)
             },
             error: function (response) {
-                console.log(response);
+                alert("ERROR: " + response["responseJSON"]["error_description"]);
             }
         });
     }
