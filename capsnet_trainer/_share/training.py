@@ -53,6 +53,7 @@ def train(
     lr=0.001,
     lr_decay_mul=0.9,
     lam_recon=0.392,
+    save_dir=None,
     weights_save_dir=None,
     save_freq=100,
 ):
@@ -66,7 +67,8 @@ def train(
         lr: Initial learning rate value.
         lr_decay_mul: The value multiplied by lr at each epoch. Set a larger value for larger epochs.
         lam_recon: The coefficient for the loss of decoder (if present).
-        weights_save_dir: Directory that will contains the weights saved. `None` if you don't want to save the weights.
+        save_dir: Directory that will contain the logs of the training. `None` if you don't want to save the logs.
+        weights_save_dir: Directory that will contain the weights saved. `None` if you don't want to save the weights.
         save_freq: The number of batches after which weights are saved.
     Returns:
         The trained model.
@@ -86,9 +88,19 @@ def train(
     )
 
     # Define a callback to reduce learning rate
-    lr_decay = callbacks.LearningRateScheduler(
-        schedule=lambda epoch: lr * (lr_decay_mul ** epoch)
-    )
+    cbacks = [
+        callbacks.LearningRateScheduler(
+            schedule=lambda epoch: lr * (lr_decay_mul ** epoch)
+        )
+    ]
+
+    # Define a callback to save training datas
+    if save_dir:
+        cbacks.append(callbacks.CSVLogger(os.path.join(save_dir, "training.log")))
+
+    # Define a callback to save weights during the training
+    if weights_save_dir:
+        cbacks.append(WeightsSaver(weights_save_dir, save_freq))
 
     # Simple training without data augmentation
     model.fit(
@@ -99,13 +111,12 @@ def train(
         validation_data=((x_test, y_test), (y_test, x_test))
         if n_output == 2
         else (x_test, y_test),
-        callbacks=[lr_decay, WeightsSaver(weights_save_dir, save_freq)]
-        if weights_save_dir
-        else [lr_decay],
+        callbacks=cbacks,
     )
 
     # Save final weights at the end of the training
-    model.save_weights(os.path.join(weights_save_dir, "trained.h5"))
+    if weights_save_dir:
+        model.save_weights(os.path.join(weights_save_dir, "trained.h5"))
 
     return model
 
