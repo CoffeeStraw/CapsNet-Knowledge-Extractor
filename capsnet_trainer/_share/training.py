@@ -6,7 +6,6 @@ import tensorflow as tf
 from tensorflow.keras import optimizers, callbacks
 
 
-# Define margin_loss function
 def margin_loss(y_true, y_pred):
     """Local function for margin loss, Eq.(4).
 
