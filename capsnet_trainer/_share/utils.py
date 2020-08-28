@@ -45,6 +45,52 @@ def load_dataset(name="MNIST"):
     return (x_train, y_train), (x_test, y_test)
 
 
+def plot_log(file_path):
+    """
+    Draw a plot of the accuracy and the loss from data collected during the training.
+
+    Args:
+        file_path: Path to the .csv you want to plot.
+    """
+    from collections import defaultdict
+    import matplotlib.pyplot as plt
+    import csv
+
+    # Load data
+    columns = defaultdict(list)
+    with open(file_path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            for (k, v) in row.items():
+                columns[k].append(round(float(v), 4))
+
+    # Plot loss
+    plt.plot(columns["epoch"], columns["val_loss"], label="val_loss")
+    plt.legend()
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.title("Training loss")
+    plt.show()
+
+    # Plot accuracy
+    plt.plot(
+        columns["epoch"], columns["vec_len_accuracy"], "g", label="vec_len_accuracy",
+    )
+    plt.plot(
+        columns["epoch"],
+        columns["val_vec_len_accuracy"],
+        "b",
+        label="val_vec_len_accuracy",
+    )
+    plt.legend()
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.title("Training and validation accuracy")
+
+    # fig.savefig('log.png')
+    plt.show()
+
+
 def pickle_dump(obj, path):
     """
     Save a serializable object with pickle,

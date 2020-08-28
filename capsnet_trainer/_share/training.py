@@ -96,7 +96,7 @@ def train(
 
     # Define a callback to save training datas
     if save_dir:
-        cbacks.append(callbacks.CSVLogger(os.path.join(save_dir, "training.log")))
+        cbacks.append(callbacks.CSVLogger(os.path.join(save_dir, "training.csv")))
 
     # Define a callback to save weights during the training
     if weights_save_dir:
