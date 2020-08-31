@@ -163,7 +163,7 @@ label {
     display: flex;
     flex-basis: 100%;
     align-items: center;
-    color: rgba(0, 0, 0);
+    color: black;
     margin: 8px 0px;
 }
 

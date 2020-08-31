@@ -99,18 +99,20 @@ def conv_out_process(act, img_mode, layer_img_dir):
             feature_image, (act.shape[0] * i, 0),
         )
 
-    # Save filters (TODO?)
-    pass
-
     # Save the new image
     new_img.save(os.path.join(layer_img_dir, f"out.jpeg"))
 
+    # Save filters (TODO?)
+    pass
+
     return {
-        "rows": 1,
-        "cols": act.shape[-1],
-        "chunk_width": act.shape[0],
-        "chunk_height": act.shape[1],
-        "outs": "out.jpeg",
+        "Activation after ReLU": {
+            "filename": "out.jpeg",
+            "rows": 1,
+            "cols": act.shape[-1],
+            "chunk_width": act.shape[0],
+            "chunk_height": act.shape[1],
+        }
     }
 
 
@@ -163,36 +165,14 @@ def pcap_out_process(act, prep_img, img_mode, layer, layer_conf, layer_img_dir):
     new_img.save(os.path.join(layer_img_dir, f"out.jpeg"))
 
     return {
-        "rows": 1,
-        "cols": act.shape[-1],
-        "chunk_width": chunk_width,
-        "chunk_height": chunk_height,
-        "outs": "out.jpeg",
+        "Capsules' length as heatmap": {
+            "filename": "out.jpeg",
+            "rows": 1,
+            "cols": act.shape[-1],
+            "chunk_width": chunk_width,
+            "chunk_height": chunk_height,
+        }
     }
-
-
-def ccap_out_process_new(prev_layer_pack, layer_pack, layer_img_dir):
-    ((pl, _), prev_act) = prev_layer_pack
-    ((cl, _), curr_act) = layer_pack
-    classes, probs = curr_act
-
-    pl_conf = pl.get_config()
-    feature_dim = int(
-        (pl.input_shape[1] - pl_conf["kernel_size"] + 1) / pl_conf["strides"]
-    )
-
-    # Compute length of digit caps
-    classes = tf.squeeze(compute_vectors_length(classes))
-    probs = tf.squeeze(probs)
-
-    print(probs.shape)
-    out = tf.reduce_sum(probs, axis=-1)
-    out = tf.reshape(out, (-1, feature_dim, feature_dim))
-    out = tf.reduce_sum(out, 0)
-
-    print(out)
-    plt.matshow(out)
-    plt.show()
 
 
 def ccap_out_process(prev_layer_pack, layer_pack, prep_img, img_mode, layer_img_dir):
@@ -248,8 +228,21 @@ def ccap_out_process(prev_layer_pack, layer_pack, prep_img, img_mode, layer_img_
     all_paths = tf.multiply(prev_caps_lengths_tiled, tmp)
     all_paths_average = tf.reduce_sum(all_paths, axis=2)
 
+    # Preprocess input image
+    input_img_width, input_img_height = prep_img.shape[1:3]
+    prep_img = prep_img[0]
+
+    # Move preprocessed image to RGB domain (if not)
+    if img_mode != "RGB":
+        prep_img = np.repeat(prep_img[:, :] * 255.0, 3, axis=2)
+    else:
+        prep_img *= 255.0
+    # Add alpha channel and convert to image
+    prep_img = np.dstack((prep_img, np.full(prep_img.shape[:-1], 255.0))).astype("int8")
+    prep_img = pil.fromarray(np.uint8(prep_img))
+
     # Prepare new image to contain capsules' activations
-    new_img = pil.new("RGB", (dims[0] * dims[-1], dims[1]))
+    new_img = pil.new("RGB", (input_img_width * dims[-1], input_img_height))
 
     # Save outputs as a single image
     all_paths_average = all_paths_average.numpy()
@@ -260,31 +253,83 @@ def ccap_out_process(prev_layer_pack, layer_pack, prep_img, img_mode, layer_img_
     )
     for i in range(all_paths_average.shape[-1]):
         rpv = all_paths_average[:, :, i]
-        img = pil.fromarray(np.uint8(matplotlib.cm.viridis(rpv) * 255))
+        heatmap = pil.fromarray(np.uint8(matplotlib.cm.jet(rpv) * 255))
 
-        new_img.paste(img, (i * dims[0], 0))
+        # Rescale and blend
+        heatmap = heatmap.resize((input_img_width, input_img_height))
+        ccaps_img = pil.blend(prep_img, heatmap, alpha=0.7)
+
+        new_img.paste(ccaps_img, (i * input_img_width, 0))
 
     # Save the new image
     new_img.save(os.path.join(layer_img_dir, f"out.jpeg"))
 
     return {
-        "rows": 1,
-        "cols": dims[-1],
-        "chunk_width": dims[0],
-        "chunk_height": dims[1],
-        "outs": "out.jpeg",
+        "Routing Path Visualization": {
+            "filename": "out.jpeg",
+            "rows": 1,
+            "cols": dims[-1],
+            "chunk_width": input_img_width,
+            "chunk_height": input_img_height,
+        }
     }
 
 
 def mask_out_process(act, img_mode, layer, model_params, layer_img_dir):
-    # Extract from batch
+    # Extract from batch and convert to numpy
     act = act[0]
+    act_numpy = act.numpy()
 
     # Get next layer ( suppose decoder (HACK) )
     next_layer = layer._outbound_nodes[1].outbound_layer
 
+    # Prepare dictionary for outputs
+    out = {}
+
+    # === MANIPULATIONS ON MAGNITUDE ===
+    n_manip = 11
+
+    # Prepare new output image
+    new_img_width = model_params["input_shape"][0] * n_manip
+    new_img_height = model_params["input_shape"][1]
+    new_img = pil.new(img_mode, (new_img_width, new_img_height))
+
+    # Edit tensor values and feed the activation forward to get reconstruction
+    for i_r, r in enumerate(np.linspace(0, 1, n_manip)):
+        r = round(r, 1)
+        # Rescale magnitude value
+        act_to_feed = np.copy(act_numpy)
+        act_to_feed *= r / compute_vectors_length(act_to_feed)
+
+        # Convert back to tensor and feed-forward
+        act_to_feed = tf.expand_dims(tf.convert_to_tensor(act_to_feed), 0)
+        reconstructed_image = next_layer(act_to_feed)
+
+        # Pre-process reconstruction
+        reconstructed_image = tf.squeeze(reconstructed_image)
+        reconstructed_image = tf.multiply(reconstructed_image, 255.0)
+        reconstructed_image = reconstructed_image.numpy().astype("int8")
+
+        # Convert to image and paste to the new image
+        reconstructed_image = pil.fromarray(reconstructed_image, mode=img_mode)
+        new_img.paste(
+            reconstructed_image, (model_params["input_shape"][0] * i_r, 0,),
+        )
+
+    # Save the new image
+    new_img.save(os.path.join(layer_img_dir, f"magnitude.jpeg"))
+
+    # Prepare partial output
+    out["1) Manipulations on magnitude"] = {
+        "filename": "magnitude.jpeg",
+        "rows": 1,
+        "cols": n_manip,
+        "chunk_width": model_params["input_shape"][0],
+        "chunk_height": model_params["input_shape"][1],
+    }
+
+    # === MANIPULATIONS ON DIMENSIONS ===
     # Prepare variables for the iterations
-    act_numpy = act.numpy()
     start = np.argmax(act != 0)
     n_dims = act.shape[0] // model_params["n_class"]
     n_manip = 11
@@ -322,15 +367,17 @@ def mask_out_process(act, img_mode, layer, model_params, layer_img_dir):
             )
 
     # Save the new image
-    new_img.save(os.path.join(layer_img_dir, f"out.jpeg"))
+    new_img.save(os.path.join(layer_img_dir, f"dimensions.jpeg"))
 
-    return {
+    out["2) Manipulations on dimensions"] = {
+        "filename": "dimensions.jpeg",
         "rows": n_dims,
         "cols": n_manip,
         "chunk_width": model_params["input_shape"][0],
         "chunk_height": model_params["input_shape"][1],
-        "outs": "out.jpeg",
     }
+
+    return out
 
 
 def model_out_process(predictions, model_out_dir):
