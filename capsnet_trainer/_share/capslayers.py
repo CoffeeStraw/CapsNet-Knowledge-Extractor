@@ -12,8 +12,7 @@ from tensorflow.keras import initializers
 
 
 class PrimaryCaps(Layer):
-    """
-    A PrimaryCaps layer. It allows to move to capsule's domain, encapsulating scalars in vectors.
+    """A PrimaryCaps layer. It allows to move to capsule's domain, encapsulating scalars in vectors.
 
     Args:
         n_caps: The number of capsules in this layer.
@@ -120,7 +119,13 @@ class DenseCaps(Layer):
     def get_config(self):
         config = super().get_config().copy()
         config.update(
-            {"n_caps": self.n_caps, "dims_caps": self.dims_caps, "r_iter": self.r_iter}
+            {
+                "n_caps": self.n_caps,
+                "dims_caps": self.dims_caps,
+                "r_iter": self.r_iter,
+                "kernel_initializer": self.kernel_initializer,
+                "shared_weights": self.shared_weights,
+            }
         )
         return config
 
@@ -177,7 +182,7 @@ class DenseCaps(Layer):
 
 
 def mask(inputs):
-    """ Mask a Tensor with shape (batch_size, n_capsules, dim_vector).
+    """Mask a Tensor with shape (batch_size, n_capsules, dim_vector).
 
     It can be done either by selecting the capsule with max length or by an additional input mask.
     The first is usually the method for testing, the second is the one for the training.
@@ -201,8 +206,7 @@ def mask(inputs):
 
 
 def compute_vectors_length(vecs, axis=-1):
-    """
-    Compute vectors length. This is used to compute final prediction as probabilities.
+    """Compute vectors' length. This is used to compute final prediction as probabilities.
 
     Args:
         vecs: A tensor with shape (batch_size, n_vectors, dim_vector)
