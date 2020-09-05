@@ -1,4 +1,5 @@
 tensorflow==2.2.0
+tf_keras_vis
 Flask
 Flask-JSON
 matplotlib
