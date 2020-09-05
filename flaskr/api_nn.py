@@ -22,7 +22,12 @@ from flaskr import paths
 import tensorflow as tf
 from tensorflow.keras.models import Model
 
+# TF-Keras-Vis
+from tf_keras_vis.gradcam import GradcamPlusPlus
+from tf_keras_vis.utils import normalize
+
 # Utilities
+from .utils import np_array_to_img_rgb
 from utils import pickle_load
 from capslayers import compute_vectors_length
 
@@ -73,7 +78,7 @@ def get_processable_layers(layers):
         elif "primary" in layer_name and "caps" in layer_name:
             processable_layers.append([layer_name, "PRIMARY_CAPS"])
         elif "caps" in layer_name:
-            processable_layers.append([layer_name, "CLASS_CAPS"])
+            processable_layers.append([layer_name, "DENSE_CAPS"])
         elif "mask" in layer_name:
             processable_layers.append([layer_name, "MASK"])
 
@@ -87,13 +92,13 @@ def conv_out_process(act, img_mode, layer_img_dir):
     # Prepare new image to contain convolutional's features
     new_img_width = act.shape[0] * act.shape[-1]
     new_img_height = act.shape[1]
-    new_img = pil.new("L", (new_img_width, new_img_height))
+    new_img = pil.new("RGB", (new_img_width, new_img_height))
 
     # Save features
     act = tf.multiply(act, 255.0)
     for i in range(act.shape[-1]):
         feature = act[:, :, i].numpy().astype("int8")
-        feature_image = pil.fromarray(feature)
+        feature_image = pil.fromarray(np.uint8(matplotlib.cm.viridis(feature) * 255))
 
         new_img.paste(
             feature_image, (act.shape[0] * i, 0),
@@ -106,7 +111,7 @@ def conv_out_process(act, img_mode, layer_img_dir):
     pass
 
     return {
-        "Activation after ReLU": {
+        "Activations after ReLU": {
             "filename": "out.jpeg",
             "rows": 1,
             "cols": act.shape[-1],
@@ -122,13 +127,7 @@ def pcap_out_process(act, prep_img, img_mode, layer, layer_conf, layer_img_dir):
     prep_img = prep_img[0]
 
     # Move preprocessed image to RGB domain (if not)
-    if img_mode != "RGB":
-        prep_img = np.repeat(prep_img[:, :] * 255.0, 3, axis=2)
-    else:
-        prep_img *= 255.0
-    # Add alpha channel and convert to image
-    prep_img = np.dstack((prep_img, np.full(prep_img.shape[:-1], 255.0))).astype("int8")
-    prep_img = pil.fromarray(np.uint8(prep_img))
+    prep_img = np_array_to_img_rgb(prep_img, img_mode)
 
     # Get new features' dimension
     feature_dim = int(
@@ -175,7 +174,7 @@ def pcap_out_process(act, prep_img, img_mode, layer, layer_conf, layer_img_dir):
     }
 
 
-def ccap_out_process(prev_layer_pack, layer_pack, prep_img, img_mode, layer_img_dir):
+def dcap_out_process(prev_layer_pack, layer_pack, prep_img, img_mode, layer_img_dir):
     # --------------------------
     # The following is a compact version of routing path visualization. All the credits goes to Aman Bhullar:
     # https://atrium.lib.uoguelph.ca/xmlui/bitstream/handle/10214/17834/Bhullar_Aman_202003_Msc.pdf?sequence=1&isAllowed=y
@@ -233,13 +232,7 @@ def ccap_out_process(prev_layer_pack, layer_pack, prep_img, img_mode, layer_img_
     prep_img = prep_img[0]
 
     # Move preprocessed image to RGB domain (if not)
-    if img_mode != "RGB":
-        prep_img = np.repeat(prep_img[:, :] * 255.0, 3, axis=2)
-    else:
-        prep_img *= 255.0
-    # Add alpha channel and convert to image
-    prep_img = np.dstack((prep_img, np.full(prep_img.shape[:-1], 255.0))).astype("int8")
-    prep_img = pil.fromarray(np.uint8(prep_img))
+    prep_img = np_array_to_img_rgb(prep_img, img_mode)
 
     # Prepare new image to contain capsules' activations
     new_img = pil.new("RGB", (input_img_width * dims[-1], input_img_height))
@@ -257,9 +250,9 @@ def ccap_out_process(prev_layer_pack, layer_pack, prep_img, img_mode, layer_img_
 
         # Rescale and blend
         heatmap = heatmap.resize((input_img_width, input_img_height))
-        ccaps_img = pil.blend(prep_img, heatmap, alpha=0.7)
+        dcaps_img = pil.blend(prep_img, heatmap, alpha=0.7)
 
-        new_img.paste(ccaps_img, (i * input_img_width, 0))
+        new_img.paste(dcaps_img, (i * input_img_width, 0))
 
     # Save the new image
     new_img.save(os.path.join(layer_img_dir, f"out.jpeg"))
@@ -273,6 +266,43 @@ def ccap_out_process(prev_layer_pack, layer_pack, prep_img, img_mode, layer_img_
             "chunk_height": input_img_height,
         }
     }
+
+
+def dcap_gradcam(model, layer, prep_img, img_mode, layer_img_dir):
+    # Edit model to stop at the current layer
+    def model_modifier(model):
+        return tf.keras.Model(inputs=model.inputs, outputs=layer.output)
+
+    # Instantiate gradcam
+    gradcam = GradcamPlusPlus(model, model_modifier, clone=False)
+
+    def loss(output):
+        """Maximize the prediction with greater probability"""
+        output = compute_vectors_length(output)
+        i = np.argmax(output, 1)[0]
+        return output[0, i]
+
+    # Compute gradcam
+    cam = normalize(
+        gradcam(
+            [loss, lambda x: tf.convert_to_tensor(0.0)],
+            prep_img,
+            penultimate_layer=layer,
+        )
+    )
+    heatmap = pil.fromarray(np.uint8(matplotlib.cm.jet(cam[0]) * 255))
+
+    # Move preprocessed image to RGB domain (if not)
+    prep_img = prep_img[0]
+    prep_img = np_array_to_img_rgb(prep_img, img_mode)
+
+    # Superimpose heatmap
+    gradcam_final = pil.blend(prep_img, heatmap, alpha=0.7)
+
+    # Save the new image
+    gradcam_final.convert("RGB").save(os.path.join(layer_img_dir, f"out.jpeg"))
+
+    return {"filename": "out.jpeg"}
 
 
 def mask_out_process(act, img_mode, layer, model_params, layer_img_dir):
@@ -418,7 +448,7 @@ def model_out_process(predictions, model_out_dir):
 
     plt.savefig(os.path.join(model_out_dir, "out.png"), transparent=True)
     plt.close("all")
-    return {"outs": "out.png"}
+    return {"filename": "out.png"}
 
 
 def compute_step(model, model_params, prep_img, img_mode, req_out_dir):
@@ -456,11 +486,18 @@ def compute_step(model, model_params, prep_img, img_mode, req_out_dir):
             outs[layer_name] = pcap_out_process(
                 act, prep_img, img_mode, layer, layer_conf, layer_img_dir
             )
-        elif layer_type == "CLASS_CAPS":
+        elif layer_type == "DENSE_CAPS":
             curr_lp = layer_pack[i]
             prev_lp = layer_pack[i - 1]
-            outs[layer_name] = ccap_out_process(
+            outs[layer_name] = dcap_out_process(
                 prev_lp, curr_lp, prep_img, img_mode, layer_img_dir
+            )
+
+            # Compute GradCAM++
+            gradcam_dir = os.path.join(req_out_dir, "gradcam")
+            os.mkdir(gradcam_dir)
+            out_info["gradcam"] = dcap_gradcam(
+                model, layer, prep_img, img_mode, gradcam_dir
             )
         elif layer_type == "MASK":
             outs[layer_name] = mask_out_process(

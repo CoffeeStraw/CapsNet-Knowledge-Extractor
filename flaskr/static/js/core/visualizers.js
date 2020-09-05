@@ -12,7 +12,12 @@ export function visualizeComputeStep(response) {
     document.getElementById("input-img").src = response['out_dir'] + "img.jpeg?" + performance.now()
 
     // Visualize prediction
-    document.getElementById("prediction-img").src = response['out_dir'] + "model_out/" + response['model_out']['outs'] + "?" + performance.now()
+    document.getElementById("prediction-img").src = response['out_dir'] + "model_out/" + response['model_out']['filename'] + "?" + performance.now()
+
+    // Visualize GradCAM++
+    console.log(response)
+    document.getElementById("gradcam-img").src = response['out_dir'] + "gradcam/" + response['gradcam']['filename'] + "?" + performance.now()
+
 
     // Visualize every output produced by the layers
     for (var layer_name in response['layers_outs']) {
