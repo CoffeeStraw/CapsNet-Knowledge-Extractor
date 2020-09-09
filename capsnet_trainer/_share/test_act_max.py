@@ -64,7 +64,7 @@ def activation_maximization(model, output_layer_name, losses, seed_input):
     }
 
     f, ax = plt.subplots(**subplot_args)
-    ax.imshow(image)
+    ax.imshow(image, cmap="gray")
     plt.tight_layout()
     plt.show()
 
