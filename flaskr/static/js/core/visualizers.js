@@ -43,18 +43,19 @@ export function visualizeComputeStep(response) {
 
             // Visualize every image's chunk
             for (var row = 0; row < out_params['rows']; row++) {
+                visualization_content_html += `<div class="row justify-content-center">`
                 for (var col = 0; col < out_params['cols']; col++) {
-                    visualization_content_html += `
-                <img class="img-responsive img-gallery" src="/static/img/tmp.gif"
-                style="background: url(${img_path});
+                    visualization_content_html += `<div>${col}<br>
+                    <img class="img-responsive img-gallery" src="/static/img/tmp.gif"
+                    style="background: url(${img_path});
                     background-position: -${col * out_params['chunk_width']}px -${row * out_params['chunk_height']}px;
                     width: ${out_params['chunk_width']}px;
                     height: ${out_params['chunk_height']}px;
                     zoom: ${zoom};
                     margin: ${margin}px ${margin}px;
-                ">`
+                    "></div>`
                 }
-                visualization_content_html += "<br/>"
+                visualization_content_html += "</div>"
             }
         }
 
