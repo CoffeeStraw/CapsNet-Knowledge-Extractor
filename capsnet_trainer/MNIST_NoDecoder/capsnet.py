@@ -49,32 +49,8 @@ def CapsuleNet(input_shape, n_class, name="CapsuleNetwork"):
     # Layer 4: A convenience layer to calculate vectors' length
     vec_len = Lambda(compute_vectors_length, name="vec_len")(digit_caps)
 
-    # --- Decoder ---
-    y = Input(shape=(n_class,))
-
-    # Layer 1: A convenience layer to compute the masked capsules' output
-    masked = Lambda(mask, name="masked")(
-        digit_caps
-    )  # Mask using the capsule with maximal length. For prediction
-    masked_by_y = Lambda(mask, name="masked_by_y")(
-        [digit_caps, y]
-    )  # The true label is used to mask the output of capsule layer. For training
-
-    # Layer 2-4: Three Dense layer for the image reconstruction
-    decoder = Sequential(name="decoder")
-    decoder.add(Dense(512, activation="relu", input_dim=16 * n_class, name="dense_1"))
-    decoder.add(Dense(1024, activation="relu", name="dense_2"))
-    decoder.add(
-        Dense(tf.math.reduce_prod(input_shape), activation="sigmoid", name="dense_3")
-    )
-
-    # Layer 5: Reshape the output as the image provided in input
-    decoder.add(Reshape(target_shape=input_shape, name="img_reconstructed"))
-
     # Models for training and evaluation (prediction)
-    train_model = Model(
-        inputs=[x, y], outputs=[vec_len, decoder(masked_by_y)], name=f"{name}_training"
-    )
-    eval_model = Model(inputs=x, outputs=[vec_len, decoder(masked)], name=name)
+    train_model = Model(inputs=[x], outputs=[vec_len], name=f"{name}_training")
+    eval_model = Model(inputs=x, outputs=[vec_len], name=name)
 
     return train_model, eval_model
