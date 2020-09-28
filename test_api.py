@@ -1,9 +1,6 @@
 """
 Simple test file that performs some requests to the API
 """
-"""
-Simple tests for the backend's API
-"""
 import requests
 
 # API / getModels

@@ -1,3 +1,8 @@
+"""
+Capsule Network training processes implementation.
+Author: Antonio Strippoli
+Original Work: Xifeng Guo (https://github.com/XifengGuo/CapsNet-Keras)
+"""
 import os
 import numpy as np
 

@@ -1,3 +1,8 @@
+"""
+Capsule Network logic implementation.
+Author: Antonio Strippoli
+Original Work: Xifeng Guo (https://github.com/XifengGuo/CapsNet-Keras)
+"""
 import tensorflow as tf
 
 from tensorflow.keras.layers import Layer, Conv2D, Reshape, Lambda

@@ -7,7 +7,7 @@ from capslayers import PrimaryCaps, DenseCaps, compute_vectors_length, mask
 
 
 def CapsuleNet(input_shape, n_class, name="CapsuleNetwork"):
-    """Capsule Network model implementation, used for MNIST dataset training.
+    """Capsule Network model implementation, used for CIFAR10 dataset training.
 
     The model has been adapted from
     the [official paper](https://arxiv.org/abs/1710.09829).
