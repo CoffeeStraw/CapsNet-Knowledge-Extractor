@@ -1,7 +1,5 @@
 # About
-This folder contains Python files of CapsNet simple implementation in Keras and two models created as an example for the project:
-1. `Original` is the model which was introduced in the [official paper](https://arxiv.org/abs/1710.09829);
-2. `Simple` is a lighter model, with less parameters. It has been created to have a simpler model with less output for the layers.
+This folder contains the codebase of our CapsNet simple implementation in Keras, along with the models studied in the thesis.
 
 All the shared files of the models are in the [`./_share`](/share) directory.
 
@@ -18,7 +16,4 @@ Then execute the training process of one of the models with:
 python3 main.py
 ```
 
-All the outputs are by default produced in `/flaskr/data`. To change that, check more info about the arguments you can pass to the script with:
-```
-python3 main.py -h
-```
+All the outputs are by default produced in a dedicated `/output` folder, inside your model's directory.
